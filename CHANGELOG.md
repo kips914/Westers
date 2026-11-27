@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.0 — 2026-11-27
+
+* Inventory icon is now 160×160 (vanilla cyberware size), so it no longer overflows its slot.
+* Capacity (humanity) cost raised from 40 to 50.
+* New buffs:
+  * Combat firmware (always on): +5 / 7 / 10 % Crit Chance on top of +10 % Crit Damage and +12 Stamina.
+  * Hunter protocol (while Sandevistan is active): +15 / 20 / 25 % Headshot Damage, +10 / 15 / 20 % Mitigation Chance, +50 / 70 / 90 Armor.
+  * Adrenaline loop: each kill under Sandevistan restores 20 / 20 / 25 % Stamina (+5 / 8 % Health on Tier 5+ / 5++).
+  * Tier 5++ "Last Hope protocol": the player's bullets are not slowed during Sandevistan; guns keep their regular hitscan attack instead of switching to time-dilated projectiles (`BulletHooks.reds`).
+* Rewritten RU/EN item descriptions, one titled line per effect.
+* `tools/gen_tweak.py` generates the tweak file from a per-tier table.
+
 ## v1.1.0 — 2026-11-27
 
 * New `MilitechHope_Installer.exe` (Windows, .NET Framework 4.8, ~200 KB).

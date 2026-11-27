@@ -4,7 +4,7 @@
 * brace / bracket balance in .tweak, .reds and .lua files
 * every LocKey#MilitechHope-* used in tweaks is defined for every language
 * inkatlas JSON is valid and points at the texture we import
-* the raw icon exists and is a 512x512 RGBA PNG
+* the raw icon exists, is a 160x160 RGBA PNG and the atlas part covers it
 """
 from __future__ import annotations
 
@@ -83,8 +83,11 @@ def main() -> int:
         errors.append("icon is not a PNG")
     else:
         w, h, depth, color = struct.unpack(">IIBB", head[16:26])
-        if (w, h) != (512, 512) or color != 6:
-            errors.append(f"icon must be 512x512 RGBA, got {w}x{h} color type {color}")
+        if (w, h) != (160, 160) or color != 6:
+            errors.append(f"icon must be 160x160 RGBA (vanilla slot size), got {w}x{h} color type {color}")
+        rect = slot["parts"][0]["clippingRectInPixels"]
+        if (rect["right"] - rect["left"], rect["bottom"] - rect["top"]) != (w, h):
+            errors.append("inkatlas clippingRectInPixels does not match the icon size")
 
     if errors:
         print("Validation failed:")

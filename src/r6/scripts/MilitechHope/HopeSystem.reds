@@ -36,6 +36,9 @@ public class MilitechHopeSystem extends ScriptableSystem {
     private let m_streak: Int32;
     private let m_lastExit: Float;
 
+    // ----- max level perk: real-speed bullets ------------------------------
+    private let m_realSpeedBullets: Bool;
+
     public static func Get(game: GameInstance) -> ref<MilitechHopeSystem> {
         return GameInstance.GetScriptableSystemsContainer(game).Get(n"MilitechHope.MilitechHopeSystem") as MilitechHopeSystem;
     }
@@ -68,6 +71,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         this.m_nearTicks = 0;
         this.m_streak = 0;
         this.m_lastExit = 0.0;
+        this.m_realSpeedBullets = false;
     }
 
     private func StartLoop(delay: Float) -> Void {
@@ -177,6 +181,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
     // Returns true when this activation overheats the implant.
     public func OnSandevistanEnter(owner: ref<GameObject>) -> Bool {
         let level = this.GetEquippedHopeLevel(owner);
+        this.m_realSpeedBullets = level >= HopeConfig.RealSpeedBulletsLevel();
         if level < 0 {
             this.m_streak = 0;
             return false;
@@ -196,6 +201,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
         if this.m_streak > limit {
             this.m_streak = 0;
+            this.m_realSpeedBullets = false;
             return true;
         }
 
@@ -207,6 +213,14 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
     public func OnSandevistanExit(owner: ref<GameObject>) -> Void {
         this.m_lastExit = this.Now();
+        this.m_realSpeedBullets = false;
+    }
+
+    // True while a Tier 5++ Hope Sandevistan is running: the player's
+    // bullets keep their normal (hitscan) behaviour instead of turning
+    // into slow time-dilated projectiles.
+    public func HasRealSpeedBullets() -> Bool {
+        return this.m_realSpeedBullets;
     }
 
     public func TriggerOverheat(owner: ref<GameObject>) -> Void {
