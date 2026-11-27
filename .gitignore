@@ -1,0 +1,5 @@
+build/
+wk/
+wk.zip
+*.archive
+__pycache__/
