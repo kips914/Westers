@@ -17,7 +17,10 @@ src, n1 = re.subn(r'let span = field\.span\(\)\.expect\("user field should have 
                   'let Some(span) = field.span() else { continue };', src)
 src, n2 = re.subn(r'let span = param\s*\.span\(\)\s*\.expect\("user function param should have a span"\);',
                   'let Some(span) = param.span() else { continue };', src)
+src, n3 = re.subn(r'for field in module\.fields\(\) \{\s*let field = &self\.symbols\[\*field\.id\(\)\];',
+                  'for field in module.fields() {\n            let Some((_, field)) = self.symbols.get_field(*field.id()) else { continue };', src)
 path.write_text(src)
+print(f"patched: {n3} module field lookups")
 print(f"patched: {n1} field spans, {n2} param spans")
 if n1 == 0 and n2 == 0:
     sys.exit(1)

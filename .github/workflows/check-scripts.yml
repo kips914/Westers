@@ -28,6 +28,8 @@ jobs:
           git clone -q --depth 1 https://github.com/psiberx/cp2077-codeware "$RUNNER_TEMP/ref/codeware"
           echo "game scripts: $(git -C "$RUNNER_TEMP/ref/game" log -1 --format='%h %ad')"
           echo "codeware: $(git -C "$RUNNER_TEMP/ref/codeware" log -1 --format='%h %ad')"
+          # Codeware's generated imports re-declare natives that the game sources already have
+          rm -rf "$RUNNER_TEMP/ref/codeware/scripts/Base/Imports"
           cp tools/script-check/mh_check.rs "$RUNNER_TEMP/ref/redscript/crates/compiler/redmod/adapter/examples/"
           python3 tools/script-check/patch_redscript.py "$RUNNER_TEMP/ref/redscript"
 
@@ -56,6 +58,6 @@ jobs:
           grep -E "^\[(ERROR|WARN)" check.log | head -50 | while IFS= read -r line; do echo "::warning title=redscript::$line"; done
           echo "::notice title=summary::$(grep -E '^(loaded|game scripts|mod):' check.log | tr '\n' ' ')"
           if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
-            grep -v "^  excluded" check.log | grep -iE "panic|error|thread|at |^ *[0-9]+:" | head -30 | while IFS= read -r line; do echo "::warning title=crash::$line"; done
+            grep -v "^  excluded" check.log | grep -iE -A3 "panicked" | head -12 | while IFS= read -r line; do echo "::warning title=crash::$line"; done
           fi
           exit $status
