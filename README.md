@@ -69,7 +69,30 @@ GetMod("MilitechHope").resetQuest()   -- начать задание занов�
 
 ## Установка
 
-Распакуйте архив из [Releases](../../releases) в папку игры (`Cyberpunk 2077/`). После распаковки должны появиться:
+### Автоматически — `MilitechHope_Installer.exe` (рекомендуется)
+
+1. Скачайте `MilitechHope_Installer.exe` из [Releases](../../releases) и запустите.
+2. Установщик сам найдёт игру (Steam, GOG, Epic). Если не нашёл — нажмите «Обзор…» и укажите корневую папку игры.
+3. Отметьте компоненты. По умолчанию выбраны мод и те из обязательных модов, которых ещё нет в игре:
+   * RED4ext, redscript, TweakXL, Codeware — обязательно;
+   * Cyber Engine Tweaks — рекомендуется;
+   * ArchiveXL — по желанию.
+4. Нажмите «Установить». Моды скачиваются в последних версиях из их официальных релизов на GitHub, а сам мод «Надежда» уже встроен в exe.
+
+Если в папку игры нельзя писать (например, `C:\Program Files`), установщик предложит перезапуститься от имени администратора. Кнопка «Удалить мод» убирает только файлы «Надежды».
+
+Для продвинутых пользователей есть тихий режим:
+
+```
+MilitechHope_Installer.exe --silent --game "D:\Games\Cyberpunk 2077" [--all | --only red4ext,redscript,tweakxl,codeware,cet,archivexl,militechhope] [--log install.log]
+MilitechHope_Installer.exe --silent --game "D:\Games\Cyberpunk 2077" --uninstall
+```
+
+Для работы установщика нужны Windows 10/11 (.NET Framework 4.8 там уже есть) и интернет для скачивания модов-зависимостей.
+
+### Вручную
+
+Распакуйте zip из [Releases](../../releases) в папку игры (`Cyberpunk 2077/`). После распаковки должны появиться:
 
 ```
 archive/pc/mod/MilitechHope.archive                       — иконка
@@ -89,10 +112,16 @@ source/archive/…/*.json   inkatlas в формате WolvenKit JSON
 assets/                   исходный скриншот и превью иконки
 tools/make_icon.py        вырезает фон из скриншота и пересобирает иконку
 tools/validate.py         проверки исходников, запускаются в CI
+installer/                установщик MilitechHope_Installer.exe (C#, .NET Framework 4.8)
 .github/workflows/        сборка .archive через WolvenKit CLI и публикация релиза
 ```
 
-Релиз собирается автоматически: GitHub Actions упаковывает иконку через WolvenKit CLI 10, собирает zip и при пуше тега `v*` публикует его в Releases.
+Релиз собирается автоматически. GitHub Actions:
+
+1. упаковывает иконку через WolvenKit CLI 10;
+2. собирает zip и установщик;
+3. проверяет установщик на тестовой папке игры;
+4. при пуше тега `v*` публикует всё в Releases.
 
 ## Настройка
 
