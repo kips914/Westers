@@ -29,6 +29,7 @@ jobs:
           echo "game scripts: $(git -C "$RUNNER_TEMP/ref/game" log -1 --format='%h %ad')"
           echo "codeware: $(git -C "$RUNNER_TEMP/ref/codeware" log -1 --format='%h %ad')"
           cp tools/script-check/mh_check.rs "$RUNNER_TEMP/ref/redscript/crates/compiler/redmod/adapter/examples/"
+          python3 tools/script-check/patch_redscript.py "$RUNNER_TEMP/ref/redscript"
 
       - uses: actions/cache@v4
         with:
@@ -36,7 +37,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ${{ runner.temp }}/ref/redscript/target
-          key: mh-check-${{ env.REDSCRIPT_VERSION }}-${{ hashFiles('tools/script-check/mh_check.rs') }}
+          key: mh-check-${{ env.REDSCRIPT_VERSION }}-${{ hashFiles('tools/script-check/*') }}
           restore-keys: mh-check-${{ env.REDSCRIPT_VERSION }}-
 
       - name: Build checker
