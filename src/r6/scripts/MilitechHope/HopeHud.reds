@@ -46,6 +46,13 @@ public class HopeHud {
         return c;
     }
 
+    public static func Vec2(x: Float, y: Float) -> Vector2 {
+        let v: Vector2;
+        v.X = x;
+        v.Y = y;
+        return v;
+    }
+
     public static func ColorNormal() -> HDRColor { return HopeHud.Rgb(0.37, 0.96, 1.0, 1.0); }
     public static func ColorWarm() -> HDRColor { return HopeHud.Rgb(1.0, 0.82, 0.25, 1.0); }
     public static func ColorHot() -> HDRColor { return HopeHud.Rgb(1.0, 0.3, 0.25, 1.0); }
@@ -119,8 +126,8 @@ public class HopeHud {
     private func SlideIn(widget: ref<inkWidget>, fromX: Float, fromY: Float, toX: Float, toY: Float) -> Void {
         let anim = new inkAnimDef();
         let move = new inkAnimTranslation();
-        move.SetStartTranslation(Vector2(fromX, fromY));
-        move.SetEndTranslation(Vector2(toX, toY));
+        move.SetStartTranslation(HopeHud.Vec2(fromX, fromY));
+        move.SetEndTranslation(HopeHud.Vec2(toX, toY));
         move.SetDuration(0.25);
         move.SetType(inkanimInterpolationType.Quadratic);
         move.SetMode(inkanimInterpolationMode.EasyOut);

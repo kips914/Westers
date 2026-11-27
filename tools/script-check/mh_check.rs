@@ -187,28 +187,43 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
             || (item.code == "UNRESOLVED_MEMBER"
                 && CODEWARE_MEMBERS.iter().any(|m| item.text.contains(m)))
     };
+    // Locals declared on an artifact (or cascade) line; repeated until nothing changes
+    // so chains like `let ink = ...; let layer = ink.GetLayer(...)` are covered.
+    let declared = |item: &Item| -> Option<String> {
+        let file = sources.get(item.file)?;
+        let text = file.source().lines().nth(item.line)?;
+        let rest = text.trim_start().strip_prefix("let ")?;
+        let name: String = rest
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect();
+        (!name.is_empty()).then_some(name)
+    };
+    let is_cascade = |item: &Item, poisoned: &HashSet<(FileId, String)>| {
+        item.code == "UNRESOLVED_REF"
+            && poisoned
+                .iter()
+                .any(|(f, n)| *f == item.file && item.text.contains(&format!("`{n}` is not defined")))
+    };
     let mut poisoned: HashSet<(FileId, String)> = HashSet::new();
-    for item in items.iter().filter(|i| is_artifact(i)) {
-        let Some(file) = sources.get(item.file) else { continue };
-        let Some(text) = file.source().lines().nth(item.line) else { continue };
-        if let Some(rest) = text.trim_start().strip_prefix("let ") {
-            let name: String = rest
-                .chars()
-                .take_while(|c| c.is_alphanumeric() || *c == '_')
-                .collect();
-            if !name.is_empty() {
+    loop {
+        let before = poisoned.len();
+        for item in &items {
+            if (is_artifact(item) || is_cascade(item, &poisoned))
+                && let Some(name) = declared(item)
+            {
                 poisoned.insert((item.file, name));
             }
+        }
+        if poisoned.len() == before {
+            break;
         }
     }
     let mut artifacts = 0;
     let mut errors = 0;
     let mut warnings = 0;
     for item in &items {
-        let cascade = item.code == "UNRESOLVED_REF"
-            && poisoned
-                .iter()
-                .any(|(f, n)| *f == item.file && item.text.contains(&format!("`{n}` is not defined")));
+        let cascade = is_cascade(item, &poisoned);
         let line = format!("{} {} {}", item.location, item.code, item.text);
         if is_artifact(item) || cascade {
             artifacts += 1;
