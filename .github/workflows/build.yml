@@ -76,6 +76,21 @@ jobs:
           Get-ChildItem build/out | ForEach-Object { Write-Host "  $($_.Name)  $($_.Length) bytes" }
           if (-not (Test-Path "build/out/$env:MOD_NAME.archive")) { throw "archive was not produced" }
 
+      - name: Report archive contents
+        shell: pwsh
+        run: |
+          $icons = "build/$env:MOD_NAME/militech_hope/icons"
+          foreach ($f in Get-ChildItem $icons, build/out -File) { Write-Host "::notice title=file::$($f.Name) $($f.Length) bytes" }
+          $list = (& $env:WKIT archive "build/out/$env:MOD_NAME.archive" -l) -join " | "
+          Write-Host "::notice title=archive::$list"
+          New-Item -ItemType Directory -Force build/check | Out-Null
+          & $env:WKIT convert serialize "$icons/militech_hope_sandevistan.xbm" -o build/check | Out-Null
+          $json = Get-ChildItem build/check -Recurse -Filter *.json | Select-Object -First 1
+          if ($json) {
+            $root = (Get-Content $json.FullName -Raw | ConvertFrom-Json).Data.RootChunk
+            Write-Host "::notice title=xbm::$($root.width)x$($root.height) group=$($root.setup.group) compression=$($root.setup.compression) gamma=$($root.setup.isGamma) mips=$($root.setup.hasMipchain)"
+          }
+
       - name: Assemble package
         shell: pwsh
         run: |
