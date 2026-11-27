@@ -133,16 +133,31 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
         if diagnostic.level() == DiagnosticLevel::Pedantic {
             continue;
         }
-        let text = match diagnostic.display(&sources) {
-            Ok(display) => display.to_string(),
-            Err(_) => diagnostic.to_string(),
-        };
+        // Game classes come from sources here (not from a bundle), so patching
+        // them looks like "modifying a user-defined symbol". Not a real error.
+        if diagnostic.code() == "INVALID_ANN_USE" {
+            continue;
+        }
+        let span = diagnostic.span();
+        let location = sources
+            .get(span.file)
+            .map(|file| {
+                let loc = file.lookup(span.start);
+                let name = file
+                    .path()
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                format!("{name}:{}:{}", loc.line + 1, loc.col + 1)
+            })
+            .unwrap_or_default();
+        let line = format!("{location} {} {}", diagnostic.code(), diagnostic.to_string().replace('\n', " "));
         if is_error {
             errors += 1;
-            println!("[ERROR {}] {text}", diagnostic.code());
+            println!("[ERROR] {line}");
         } else {
             warnings += 1;
-            println!("[WARN {}] {text}", diagnostic.code());
+            println!("[WARN] {line}");
         }
     }
     println!(
