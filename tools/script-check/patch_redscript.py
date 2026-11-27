@@ -28,6 +28,15 @@ src, n4 = re.subn(r'(FuncItemKind::AddMethod\(func\) => \{\s*)if !symbols\[func\
                   r'\1if symbols.get_method(func.id).is_none_or(|(_, m)| !m.type_().is_valid()) {', src)
 infer.write_text(src)
 print(f"patched: {n4} add-method lookups")
+
+# REDmod authoring checks (overrides / persistent fields of the game files) are
+# irrelevant here and index symbols that duplicate Codeware additions removed.
+lib = root / "crates/compiler/redmod/adapter/src/lib.rs"
+src = lib.read_text()
+src, n5 = re.subn(r'\n(\s*)validate::overrides\(&unit, &symbols, &files, &overrides, &mut errors\);\n\s*persistent::validate\(&unit, &symbols, &files, &mut errors\);',
+                  r'\n\1std::hint::black_box((&overrides, &files));', src, count=1)
+lib.write_text(src)
+print(f"patched: {n5} adapter validations skipped")
 print(f"patched: {n1} field spans, {n2} param spans")
 if n1 == 0 and n2 == 0:
     sys.exit(1)
