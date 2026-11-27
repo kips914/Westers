@@ -9,7 +9,11 @@
 //  Tier 5++ | 99 % | 10  s |  +10  |  x1.25   |  +20   |  +90  | 25% stamina, 8% HP
 //  All tiers: +10 % crit damage, +12 stamina, 10 s full recharge, humanity 50.
 //  Tier 5++ only: bullets keep their real speed during Sandevistan (redscript).
-//  Overheat (redscript): 3 uses in a row (2 on Tier 5++) -> shutdown + 12 s lockout.
+//  Overheat (redscript, heat in degrees C): 40 C idle, 120 C = shutdown + 12 s lockout.
+//    Each activation heats 22 C (30 C on Tier 5++), half as much from a full charge;
+//    a fully recharged implant cools back to 40 C.
+//  Tier 5++ has an upgrade slot (AttachmentSlots.SandevistanSlot1) for six
+//  Militech upgrade modules (logic in redscript), sold by the broker or given by console.
 //  Headshot / mitigation / armor apply only while the Sandevistan is active.
 // =====================================================================
 
@@ -401,6 +405,7 @@ Items.MilitechHopeSandevistanPlus : Items.MilitechHopeSandevistan
 [ notQueryable ]
 Items.MilitechHopeSandevistanPlusPlus : Items.MilitechHopeSandevistan
 {
+	blueprint = "Items.MilitechHopeSandevistanBlueprint";
 	quality = "Quality.LegendaryPlusPlus";
 	statModifiers =
 	[
@@ -561,9 +566,185 @@ Items.MilitechHopeSandevistanPlusPlus : Items.MilitechHopeSandevistan
 		{
 			UIData =
 			{
+				localizedDescription = "LocKey#MilitechHope-UpgradeSlot";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
 				localizedDescription = "LocKey#MilitechHope-Overheat-T5PP";
 			};
 		} : GameplayLogicPackage
 	];
 	nextUpgradeItem = "";
+}
+
+// ---------------------------------------------------------------------
+//  Shorter overheat lockout (8 s) used when a Second Heart is installed
+// ---------------------------------------------------------------------
+MilitechHope.SandevistanOverheatShort : MilitechHope.SandevistanOverheat
+{
+	duration =
+	{
+		statModifiers =
+		[
+			{
+				statType = "BaseStats.MaxDuration";
+				modifierType = "Additive";
+				value = 8f;
+			} : ConstantStatModifier
+		];
+	} : StatModifierGroup;
+}
+
+// ---------------------------------------------------------------------
+//  Tier 5++ blueprint: one upgrade slot
+// ---------------------------------------------------------------------
+[ notQueryable ]
+Items.MilitechHopeSandevistanBlueprint : ItemBlueprint
+{
+	rootElement =
+	{
+		slot = "AttachmentSlots.GenericItemRoot";
+		childElements =
+		[
+			{
+				slot = "AttachmentSlots.SandevistanSlot1";
+			}
+		];
+	};
+}
+
+// ---------------------------------------------------------------------
+//  Upgrade modules (Tier 5++ slot). Effects are scripted in redscript.
+// ---------------------------------------------------------------------
+[ notQueryable ]
+Items.MilitechHopeMod_Discharge : Items.Fragment
+{
+	displayName = "LocKey#MilitechHope-Mod-Discharge-Name";
+	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
+	quality = "Quality.Legendary";
+	iconPath = "cwf_sandevistan1";
+	placementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+	tags += [ "itemPart", "MilitechHopeUpgrade" ];
+	OnAttach =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mod-Discharge-Desc";
+			};
+		} : GameplayLogicPackage
+	];
+}
+
+[ notQueryable ]
+Items.MilitechHopeMod_QuickCharge : Items.Fragment
+{
+	displayName = "LocKey#MilitechHope-Mod-QuickCharge-Name";
+	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
+	quality = "Quality.Legendary";
+	iconPath = "cwf_sandevistan1";
+	placementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+	tags += [ "itemPart", "MilitechHopeUpgrade" ];
+	OnAttach =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mod-QuickCharge-Desc";
+			};
+		} : GameplayLogicPackage
+	];
+}
+
+[ notQueryable ]
+Items.MilitechHopeMod_NewBreath : Items.Fragment
+{
+	displayName = "LocKey#MilitechHope-Mod-NewBreath-Name";
+	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
+	quality = "Quality.Legendary";
+	iconPath = "cwf_sandevistan1";
+	placementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+	tags += [ "itemPart", "MilitechHopeUpgrade" ];
+	OnAttach =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mod-NewBreath-Desc";
+			};
+		} : GameplayLogicPackage
+	];
+}
+
+[ notQueryable ]
+Items.MilitechHopeMod_PhaseShield : Items.Fragment
+{
+	displayName = "LocKey#MilitechHope-Mod-PhaseShield-Name";
+	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
+	quality = "Quality.Legendary";
+	iconPath = "cwf_sandevistan1";
+	placementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+	tags += [ "itemPart", "MilitechHopeUpgrade" ];
+	OnAttach =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mod-PhaseShield-Desc";
+			};
+		} : GameplayLogicPackage
+	];
+}
+
+[ notQueryable ]
+Items.MilitechHopeMod_Berserk : Items.Fragment
+{
+	displayName = "LocKey#MilitechHope-Mod-Berserk-Name";
+	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
+	quality = "Quality.Legendary";
+	iconPath = "cwf_sandevistan1";
+	placementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+	tags += [ "itemPart", "MilitechHopeUpgrade" ];
+	OnAttach =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mod-Berserk-Desc";
+			};
+		} : GameplayLogicPackage
+	];
+}
+
+[ notQueryable ]
+Items.MilitechHopeMod_TrueMadness : Items.Fragment
+{
+	displayName = "LocKey#MilitechHope-Mod-TrueMadness-Name";
+	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
+	quality = "Quality.Legendary";
+	iconPath = "cwf_sandevistan1";
+	placementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+	tags += [ "itemPart", "MilitechHopeUpgrade" ];
+	OnAttach =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mod-TrueMadness-Desc";
+			};
+		} : GameplayLogicPackage
+	];
+}
+
+// ---------------------------------------------------------------------
+//  Broker's business card: hidden in a random loot container (redscript)
+// ---------------------------------------------------------------------
+[ notQueryable ]
+Items.MilitechHopeDealerCard : Items.SouvenirJunkItem1
+{
+	displayName = "LocKey#MilitechHope-Card-Name";
+	localizedDescription = "LocKey#MilitechHope-Card-Desc";
+	tags += [ "MilitechHope" ];
 }

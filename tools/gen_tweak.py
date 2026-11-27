@@ -25,6 +25,8 @@ def tier(t):
     if t["base"] != "Items.SandevistanBase":
         out.append("[ notQueryable ]")
     out.append(f"{t['rec']} : {t['base']}\n{{")
+    if t["key"] == "T5PP":
+        out.append('\tblueprint = "Items.MilitechHopeSandevistanBlueprint";')
     if t["base"] == "Items.SandevistanBase":
         out.append("""\tdisplayName = "LocKey#MilitechHope-Name";
 \tlocalizedDescription = "LocKey#MilitechHope-Lore";
@@ -129,6 +131,7 @@ def tier(t):
     # 5. real-speed bullets (script) on max level
     if k == "T5PP":
         pk.append(ui("MilitechHope-Bullets"))
+        pk.append(ui("MilitechHope-UpgradeSlot"))
     # 6. flaw
     pk.append(ui(f"MilitechHope-Overheat-{'T5PP' if k == 'T5PP' else 'T5'}"))
     out.append("\tOnEquip =\n\t[\n" + ",\n".join(pk) + "\n\t];")
@@ -146,7 +149,11 @@ HEADER = """// =================================================================
 //  Tier 5++ | 99 % | 10  s |  +10  |  x1.25   |  +20   |  +90  | 25% stamina, 8% HP
 //  All tiers: +10 % crit damage, +12 stamina, 10 s full recharge, humanity 50.
 //  Tier 5++ only: bullets keep their real speed during Sandevistan (redscript).
-//  Overheat (redscript): 3 uses in a row (2 on Tier 5++) -> shutdown + 12 s lockout.
+//  Overheat (redscript, heat in degrees C): 40 C idle, 120 C = shutdown + 12 s lockout.
+//    Each activation heats 22 C (30 C on Tier 5++), half as much from a full charge;
+//    a fully recharged implant cools back to 40 C.
+//  Tier 5++ has an upgrade slot (AttachmentSlots.SandevistanSlot1) for six
+//  Militech upgrade modules (logic in redscript), sold by the broker or given by console.
 //  Headshot / mitigation / armor apply only while the Sandevistan is active.
 // =====================================================================
 
@@ -192,9 +199,96 @@ MilitechHope.SandevistanOverheat : BaseStatusEffect.PlayerCyberwareCooldown
 }
 """
 
+
+UPGRADES = [
+    # record suffix, loc key part
+    ("Discharge", "Discharge"),
+    ("QuickCharge", "QuickCharge"),
+    ("NewBreath", "NewBreath"),
+    ("PhaseShield", "PhaseShield"),
+    ("Berserk", "Berserk"),
+    ("TrueMadness", "TrueMadness"),
+]
+
+def upgrade(rec, key):
+    return f"""[ notQueryable ]
+Items.MilitechHopeMod_{rec} : Items.Fragment
+{{
+\tdisplayName = "LocKey#MilitechHope-Mod-{key}-Name";
+\tlocalizedDescription = "LocKey#MilitechHope-Mod-Lore";
+\tquality = "Quality.Legendary";
+\ticonPath = "cwf_sandevistan1";
+\tplacementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+\ttags += [ "itemPart", "MilitechHopeUpgrade" ];
+\tOnAttach =
+\t[
+\t\t{{
+\t\t\tUIData =
+\t\t\t{{
+\t\t\t\tlocalizedDescription = "LocKey#MilitechHope-Mod-{key}-Desc";
+\t\t\t}};
+\t\t}} : GameplayLogicPackage
+\t];
+}}
+"""
+
+EXTRA = """
+// ---------------------------------------------------------------------
+//  Shorter overheat lockout (8 s) used when a Second Heart is installed
+// ---------------------------------------------------------------------
+MilitechHope.SandevistanOverheatShort : MilitechHope.SandevistanOverheat
+{
+\tduration =
+\t{
+\t\tstatModifiers =
+\t\t[
+\t\t\t{
+\t\t\t\tstatType = "BaseStats.MaxDuration";
+\t\t\t\tmodifierType = "Additive";
+\t\t\t\tvalue = 8f;
+\t\t\t} : ConstantStatModifier
+\t\t];
+\t} : StatModifierGroup;
+}
+
+// ---------------------------------------------------------------------
+//  Tier 5++ blueprint: one upgrade slot
+// ---------------------------------------------------------------------
+[ notQueryable ]
+Items.MilitechHopeSandevistanBlueprint : ItemBlueprint
+{
+\trootElement =
+\t{
+\t\tslot = "AttachmentSlots.GenericItemRoot";
+\t\tchildElements =
+\t\t[
+\t\t\t{
+\t\t\t\tslot = "AttachmentSlots.SandevistanSlot1";
+\t\t\t}
+\t\t];
+\t};
+}
+
+// ---------------------------------------------------------------------
+//  Upgrade modules (Tier 5++ slot). Effects are scripted in redscript.
+// ---------------------------------------------------------------------
+""" + "\n".join(upgrade(r, k) for r, k in UPGRADES) + """
+// ---------------------------------------------------------------------
+//  Broker's business card: hidden in a random loot container (redscript)
+// ---------------------------------------------------------------------
+[ notQueryable ]
+Items.MilitechHopeDealerCard : Items.SouvenirJunkItem1
+{
+\tdisplayName = "LocKey#MilitechHope-Card-Name";
+\tlocalizedDescription = "LocKey#MilitechHope-Card-Desc";
+\ttags += [ "MilitechHope" ];
+}
+"""
+
 names = ["Tier 5 (base)", "Tier 5+", "Tier 5++ (max level)"]
 body = HEADER
 for n, t in zip(names, TIERS):
     body += f"\n// ---------------------------------------------------------------------\n//  {n}\n// ---------------------------------------------------------------------\n" + tier(t) + "\n"
+body += EXTRA
 open(__import__("pathlib").Path(__file__).resolve().parents[1] / "src/r6/tweaks/MilitechHope/militech_hope.tweak", "w", encoding="utf-8").write(body)
 print(len(body.splitlines()))
