@@ -133,7 +133,15 @@ namespace MilitechHopeInstaller
             return req;
         }
 
-        private string DownloadLatest(ModComponent c, Action<int> progressPermille)
+        /// <summary>Latest GitHub release of a component: tag and the download URL of the matching asset.</summary>
+        public sealed class ReleaseInfo
+        {
+            public string Tag;
+            public string Url;
+            public string Notes;
+        }
+
+        public static ReleaseInfo GetLatestRelease(ModComponent c)
         {
             string json;
             using (var resp = Request($"https://api.github.com/repos/{c.Repo}/releases/latest").GetResponse())
@@ -150,7 +158,83 @@ namespace MilitechHopeInstaller
                 .FirstOrDefault(u => pattern.IsMatch(Uri.UnescapeDataString(u.Substring(u.LastIndexOf('/') + 1))));
             if (url == null)
                 throw new InvalidOperationException($"в релизе {c.Repo} {tag} нет файла по шаблону {c.AssetPattern}");
+            var notes = Regex.Match(json, "\"body\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").Groups[1].Value;
+            try { notes = Regex.Unescape(notes); } catch (ArgumentException) { }
+            return new ReleaseInfo { Tag = tag, Url = url, Notes = notes };
+        }
 
+        /// <summary>"v1.4.0" / "1.4" → Version; null when the text is not a version.</summary>
+        public static Version ParseVersion(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            var m = Regex.Match(text, @"(\d+)\.(\d+)(?:\.(\d+))?");
+            if (!m.Success) return null;
+            return new Version(int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value),
+                m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : 0);
+        }
+
+        /// <summary>Version of the installed Militech Hope mod (from VERSION.txt), or null.</summary>
+        public static string GetInstalledModVersion(string gameDir)
+        {
+            try
+            {
+                var path = Path.Combine(gameDir, Catalog.VersionFile);
+                if (File.Exists(path)) return File.ReadAllText(path).Trim();
+                // 1.3.x and older had no version file
+                return Catalog.MainMod.IsInstalled(gameDir) ? "1.3 или старше" : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// Downloads the latest Militech Hope release from GitHub and installs it,
+        /// removing the old mod files first so nothing stale is left behind.
+        /// Returns true when the mod is up to date afterwards.
+        /// </summary>
+        public bool UpdateMainMod(string gameDir, bool force)
+        {
+            Directory.CreateDirectory(_tempDir);
+            var mod = Catalog.MainMod;
+            try
+            {
+                Progress?.Invoke(0);
+                Write("── Проверка обновлений: github.com/" + mod.Repo);
+                var release = GetLatestRelease(mod);
+                var installedText = GetInstalledModVersion(gameDir);
+                var installed = ParseVersion(installedText);
+                var latest = ParseVersion(release.Tag);
+                Write($"   установлено: {installedText ?? "нет"}, последняя версия: {release.Tag}");
+                if (!force && installed != null && latest != null && installed >= latest)
+                {
+                    Write("   ✓ у вас последняя версия мода");
+                    Progress?.Invoke(100);
+                    return true;
+                }
+
+                var zip = Download(release, p => Progress?.Invoke(p * 70 / 1000));
+                Progress?.Invoke(75);
+                Write("   удаление старых файлов мода");
+                RemoveMainMod(gameDir);
+                var count = ExtractToGame(zip, gameDir, mod.SkipRootFiles);
+                Write($"   ✓ мод обновлён до {release.Tag}, файлов: {count}");
+                Progress?.Invoke(100);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Write($"   ✗ ошибка обновления: {ex.Message}");
+                Progress?.Invoke(100);
+                return false;
+            }
+        }
+
+        private string DownloadLatest(ModComponent c, Action<int> progressPermille) =>
+            Download(GetLatestRelease(c), progressPermille);
+
+        private string Download(ReleaseInfo release, Action<int> progressPermille)
+        {
+            var tag = release.Tag;
+            var url = release.Url;
             var fileName = url.Substring(url.LastIndexOf('/') + 1);
             var target = Path.Combine(_tempDir, fileName);
             Write($"   скачивание {fileName} ({tag})");

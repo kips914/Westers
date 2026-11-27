@@ -91,6 +91,11 @@ namespace MilitechHopeInstaller
             },
         };
 
+        /// <summary>Written by the CI into the mod package: the installed mod version ("v1.4.0").</summary>
+        public const string VersionFile = @"r6\scripts\MilitechHope\VERSION.txt";
+
+        public static ModComponent MainMod => All.First(c => c.IsMainMod);
+
         /// <summary>Files and folders that belong to the Militech Hope mod (used by "Remove mod").</summary>
         public static readonly string[] MainModPaths =
         {

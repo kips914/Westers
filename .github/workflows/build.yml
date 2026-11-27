@@ -109,6 +109,7 @@ jobs:
           Copy-Item -Recurse src/r6 $stage
           Copy-Item -Recurse src/bin $stage
           Copy-Item README.md "$stage/MilitechHope_README.md"
+          Set-Content -Encoding ascii "$stage/r6/scripts/MilitechHope/VERSION.txt" $version
           $zip = "build/${env:MOD_NAME}_Sandevistan_$version.zip"
           Compress-Archive -Path "$stage/*" -DestinationPath $zip
           "ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -151,6 +152,16 @@ jobs:
           $missing = $expect | Where-Object { -not (Test-Path (Join-Path $game $_)) }
           if ($missing) { throw "missing after install: $($missing -join ', ')" }
           if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+
+          if (-not (Test-Path (Join-Path $game "r6\scripts\MilitechHope\VERSION.txt"))) { throw "VERSION.txt missing after install" }
+
+          # update: downloads the latest published release from GitHub
+          $ulog = Join-Path $env:RUNNER_TEMP "update.log"
+          $pu = Start-Process $env:INSTALLER -ArgumentList @("--silent", "--update", "--force", "--game", "`"$game`"", "--log", "`"$ulog`"") -Wait -PassThru
+          $utext = (Get-Content $ulog -Encoding utf8) -join " | "
+          Write-Host "::notice title=update log (exit $($pu.ExitCode))::$utext"
+          if ($pu.ExitCode -ne 0) { throw "update failed" }
+          if (-not (Test-Path (Join-Path $game "r6\scripts\MilitechHope\HopeSystem.reds"))) { throw "mod missing after update" }
 
           # uninstall must remove only the mod
           $p2 = Start-Process $env:INSTALLER -ArgumentList @("--silent", "--uninstall", "--game", "`"$game`"") -Wait -PassThru
