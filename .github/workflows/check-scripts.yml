@@ -1,0 +1,56 @@
+name: Check scripts
+
+# Type-checks src/r6/scripts/MilitechHope/*.reds with the redscript 1.0.2
+# compiler frontend against the game's script sources, Codeware's scripts and
+# tools/script-check/stubs (Codeware natives). See tools/script-check/mh_check.rs.
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+env:
+  REDSCRIPT_VERSION: "1.0.2"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch compiler and reference sources
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/ref"
+          curl -sSL "https://codeload.github.com/jac3km4/redscript/tar.gz/refs/tags/v$REDSCRIPT_VERSION" | tar xz -C "$RUNNER_TEMP/ref"
+          mv "$RUNNER_TEMP/ref/redscript-$REDSCRIPT_VERSION" "$RUNNER_TEMP/ref/redscript"
+          git clone -q --depth 1 https://github.com/CDPR-Modding-Documentation/Cyberpunk-Scripts "$RUNNER_TEMP/ref/game"
+          git clone -q --depth 1 https://github.com/psiberx/cp2077-codeware "$RUNNER_TEMP/ref/codeware"
+          echo "game scripts: $(git -C "$RUNNER_TEMP/ref/game" log -1 --format='%h %ad')"
+          echo "codeware: $(git -C "$RUNNER_TEMP/ref/codeware" log -1 --format='%h %ad')"
+          cp tools/script-check/mh_check.rs "$RUNNER_TEMP/ref/redscript/crates/compiler/redmod/adapter/examples/"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/ref/redscript/target
+          key: mh-check-${{ env.REDSCRIPT_VERSION }}-${{ hashFiles('tools/script-check/mh_check.rs') }}
+          restore-keys: mh-check-${{ env.REDSCRIPT_VERSION }}-
+
+      - name: Build checker
+        working-directory: ${{ runner.temp }}/ref/redscript
+        run: cargo build --release -p redscript-redmod-adapter --example mh_check
+
+      - name: Type-check mod scripts
+        run: |
+          deps=("$RUNNER_TEMP/ref/codeware/scripts")
+          if [ -d tools/script-check/stubs ]; then deps+=("$PWD/tools/script-check/stubs"); fi
+          status=0
+          "$RUNNER_TEMP/ref/redscript/target/release/examples/mh_check" \
+            "$RUNNER_TEMP/ref/game/scripts" "$PWD/src/r6/scripts/MilitechHope" "${deps[@]}" > check.log 2>&1 || status=$?
+          cat check.log
+          grep -E "^\[(ERROR|WARN)" check.log | head -50 | while IFS= read -r line; do echo "::warning title=redscript::$line"; done
+          echo "::notice title=summary::$(grep -E '^(loaded|game scripts|mod):' check.log | tr '\n' ' ')"
+          exit $status
