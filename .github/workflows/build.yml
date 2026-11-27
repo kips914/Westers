@@ -107,10 +107,54 @@ jobs:
           "ZIP=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Get-ChildItem $stage -Recurse -File | ForEach-Object { $_.FullName.Substring((Resolve-Path $stage).Path.Length) }
 
+      - name: Build installer (exe)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force installer/payload | Out-Null
+          Copy-Item $env:ZIP installer/payload/MilitechHope.zip
+          dotnet build installer/MilitechHopeInstaller.csproj -c Release -o build/installer -nologo
+          if ($LASTEXITCODE -ne 0) { throw "installer build failed" }
+          Copy-Item build/installer/MilitechHopeInstaller.exe build/MilitechHope_Installer.exe
+          $size = (Get-Item build/MilitechHope_Installer.exe).Length
+          Write-Host "::notice title=installer::MilitechHope_Installer.exe $size bytes"
+          "INSTALLER=build/MilitechHope_Installer.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Test installer on a fake game folder
+        shell: pwsh
+        run: |
+          $game = Join-Path $env:RUNNER_TEMP "Cyberpunk 2077"
+          New-Item -ItemType Directory -Force (Join-Path $game "bin\x64") | Out-Null
+          Set-Content (Join-Path $game "bin\x64\Cyberpunk2077.exe") "fake"
+          $log = Join-Path $env:RUNNER_TEMP "install.log"
+          $p = Start-Process $env:INSTALLER -ArgumentList @("--silent", "--all", "--game", "`"$game`"", "--log", "`"$log`"") -Wait -PassThru
+          $text = (Get-Content $log -Encoding utf8) -join " | "
+          Write-Host "::notice title=installer log (exit $($p.ExitCode))::$text"
+
+          $tree = Get-ChildItem $game -Recurse -File | ForEach-Object { $_.FullName.Substring($game.Length + 1) } |
+            ForEach-Object { ($_ -split '\\')[0..([Math]::Min(2, ($_ -split '\\').Length - 1))] -join '\' } | Sort-Object -Unique
+          Write-Host "::notice title=installed tree::$($tree -join ' | ')"
+
+          $expect = @(
+            "red4ext\RED4ext.dll", "red4ext\plugins\TweakXL", "red4ext\plugins\Codeware", "red4ext\plugins\ArchiveXL",
+            "bin\x64\plugins\cyber_engine_tweaks.asi", "archive\pc\mod\MilitechHope.archive",
+            "r6\tweaks\MilitechHope\militech_hope.tweak", "r6\scripts\MilitechHope\HopeSystem.reds",
+            "bin\x64\plugins\cyber_engine_tweaks\mods\MilitechHope\init.lua"
+          )
+          $missing = $expect | Where-Object { -not (Test-Path (Join-Path $game $_)) }
+          if ($missing) { throw "missing after install: $($missing -join ', ')" }
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+
+          # uninstall must remove only the mod
+          $p2 = Start-Process $env:INSTALLER -ArgumentList @("--silent", "--uninstall", "--game", "`"$game`"") -Wait -PassThru
+          if ($p2.ExitCode -ne 0 -or (Test-Path (Join-Path $game "r6\tweaks\MilitechHope")) -or -not (Test-Path (Join-Path $game "red4ext\RED4ext.dll"))) { throw "uninstall check failed" }
+
       - uses: actions/upload-artifact@v4
         with:
           name: MilitechHope-package
-          path: ${{ env.ZIP }}
+          path: |
+            ${{ env.ZIP }}
+            ${{ env.INSTALLER }}
 
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -118,4 +162,6 @@ jobs:
         with:
           name: Militech «Надежда» Sandevistan ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
-          files: ${{ env.ZIP }}
+          files: |
+            ${{ env.ZIP }}
+            ${{ env.INSTALLER }}

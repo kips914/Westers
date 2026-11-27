@@ -3,3 +3,6 @@ wk/
 wk.zip
 *.archive
 __pycache__/
+installer/payload/
+installer/bin/
+installer/obj/
