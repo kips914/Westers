@@ -3,6 +3,8 @@
 //   * reactions to other installed implants (Axolotl, Cox-2, ...)
 //   * Tier 5++ upgrade modules (two slots: AttachmentSlots.SandevistanSlot1/2)
 //   * afterimage trail while the Sandevistan is active
+//   * mastery: frequent use lowers the capacity cost and improves the implant
+//   * burnout: too many activations in a short time can burn the core out
 //   * Militech broker: hidden business card, shop and contracts
 //   * side job "Hope" (Arasaka Waterfront -> Columbarium crate)
 module MilitechHope
@@ -42,6 +44,8 @@ public class MilitechHopeSystem extends ScriptableSystem {
     private persistent let m_contractsDone: Int32;
     private persistent let m_contract: Int32;
     private persistent let m_contractKills: Int32;
+    // mastery: how many times Hope has been activated (any tier)
+    private persistent let m_masteryUses: Int32;
 
     // ----- session state ---------------------------------------------------
     private let m_loopToken: Int32;
@@ -76,6 +80,19 @@ public class MilitechHopeSystem extends ScriptableSystem {
     private let m_breathMod: ref<gameStatModifierData>;
     private let m_killTimes: array<Float>;
     private let m_recentKills: array<EntityID>;
+
+    // ----- mastery / warnings / burnout ------------------------------------------
+    private let m_masteryApplied: Int32;
+    private let m_masteryMods: array<ref<gameStatModifierData>>;
+    private let m_activationTimes: array<Float>;
+    private let m_pendingWarning: Int32;
+    private let m_warnDelay: Float;
+    private let m_burnoutPending: Bool;
+    // 0 = none, 1 = error storm, 2 = discharge (time stopped)
+    private let m_burnout: Int32;
+    private let m_burnoutTimer: Float;
+    private let m_burnoutErrorTimer: Float;
+    private let m_burnoutHeatStart: Float;
 
     // ----- other implants ----------------------------------------------------
     private let m_implantIds: array<TweakDBID>;
@@ -155,6 +172,19 @@ public class MilitechHopeSystem extends ScriptableSystem {
         ArrayClear(this.m_recentKills);
         this.m_implantTimer = 0.0;
 
+        // Runtime stat modifiers are not saved: the new player object has none.
+        this.m_masteryApplied = -1;
+        ArrayClear(this.m_masteryMods);
+        ArrayClear(this.m_activationTimes);
+        this.m_pendingWarning = 0;
+        this.m_warnDelay = 0.0;
+        this.m_burnoutPending = false;
+        if this.m_burnout > 0 {
+            this.ClearBurnoutTime();
+        }
+        this.m_burnout = 0;
+        this.m_burnoutTimer = 0.0;
+
         ArrayClear(this.m_trail);
         this.m_trailHasLast = false;
         this.m_trailFade = 0.0;
@@ -164,6 +194,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
         this.m_hud.HideMenu();
         this.m_hud.HideGauge();
+        this.m_hud.HideBanner();
         this.m_hud.Reset();
         this.m_menuOpen = false;
         this.m_menuIndex = 0;
@@ -209,6 +240,12 @@ public class MilitechHopeSystem extends ScriptableSystem {
         message.type = kind;
         GameInstance.GetBlackboardSystem(this.GetGameInstance()).Get(GetAllBlackboardDefs().UI_Notifications)
             .SetVariant(GetAllBlackboardDefs().UI_Notifications.WarningMessage, ToVariant(message), true);
+    }
+
+    private func Banner(text: String, sub: String, level: Int32, seconds: Float, glitch: Bool) -> Void {
+        if HopeConfig.BannerEnabled() {
+            this.m_hud.ShowBanner(text, sub, level, seconds, glitch);
+        }
     }
 
     public func PlaySound(sound: CName) -> Void {
@@ -522,7 +559,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
     }
 
     private func HeatMultiplier() -> Float {
-        let mult = 1.0;
+        let mult = 1.0 - HopeConfig.MasteryHeatPerLevel() * Cast<Float>(this.MasteryLevel());
         if this.m_cox2 {
             mult *= HopeConfig.Cox2HeatMult();
         }
@@ -533,7 +570,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
     }
 
     private func CoolingMultiplier() -> Float {
-        let mult = 1.0;
+        let mult = 1.0 + HopeConfig.MasteryCoolingPerLevel() * Cast<Float>(this.MasteryLevel());
         if this.m_axolotl {
             mult *= HopeConfig.AxolotlCoolingMult();
         }
@@ -579,12 +616,27 @@ public class MilitechHopeSystem extends ScriptableSystem {
             heat += HopeConfig.MadnessHeat();
         }
 
+        if this.m_burnout > 0 {
+            this.m_realSpeedBullets = false;
+            return true;
+        }
+
+        // Burnout: the 10th (or later) activation within 5 minutes may burn the core out.
+        let recent = this.CountRecentActivations() + 1;
+        if HopeConfig.BurnoutEnabled() && recent >= HopeConfig.BurnoutActivations() && RandF() < HopeConfig.BurnoutChance() {
+            this.m_burnoutPending = true;
+            this.m_realSpeedBullets = false;
+            return true;
+        }
+
         if this.m_heat + heat >= HopeConfig.CriticalHeat() {
             this.m_heat = HopeConfig.CriticalHeat();
             this.m_realSpeedBullets = false;
             return true;
         }
         this.m_heat += heat;
+        ArrayPush(this.m_activationTimes, this.m_clock);
+        this.AddMasteryUse(player);
 
         this.m_active = true;
         this.m_activeTime = 0.0;
@@ -609,9 +661,17 @@ public class MilitechHopeSystem extends ScriptableSystem {
             this.ShowMessage(this.T(n"MilitechHope-Msg-NewBreath"), SimpleMessageType.Neutral, 3.0);
         }
 
-        if this.m_heat >= HopeConfig.WarningHeat() {
-            this.ShowMessage(this.T(n"MilitechHope-Msg-OverheatWarning") + " " + IntToString(RoundF(this.m_heat)) + " °C", SimpleMessageType.Neutral, 3.0);
+        // Overheat warning: shown a moment later from the fast loop, so the
+        // Sandevistan's own activation UI does not swallow it.
+        let next = HopeConfig.ActivationHeat(level) * this.HeatMultiplier();
+        if this.m_heat + next >= HopeConfig.CriticalHeat() {
+            this.m_pendingWarning = 2;
+        } else {
+            if this.m_heat >= HopeConfig.WarmHeat() || recent >= HopeConfig.BurnoutActivations() - 2 {
+                this.m_pendingWarning = 1;
+            }
         }
+        this.m_warnDelay = 0.4;
 
         this.StartTrail(player);
         return false;
@@ -668,7 +728,26 @@ public class MilitechHopeSystem extends ScriptableSystem {
     }
 
     public func TriggerOverheat(owner: ref<GameObject>) -> Void {
+        if this.m_burnoutPending {
+            this.m_burnoutPending = false;
+            this.StartBurnout(owner);
+            return;
+        }
+        if this.m_burnout > 0 {
+            this.RequestDeactivation(owner as PlayerPuppet);
+            return;
+        }
         this.ApplyLockout(owner, true);
+    }
+
+    private func RequestDeactivation(player: ref<PlayerPuppet>) -> Void {
+        if !IsDefined(player) {
+            return;
+        }
+        let request = new PSMPostponedParameterBool();
+        request.id = n"requestSandevistanDeactivation";
+        request.value = true;
+        player.QueueEvent(request);
     }
 
     // Overheat: optional shutdown, empty charge, lockout status effect.
@@ -680,10 +759,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
 
         if deactivate {
-            let request = new PSMPostponedParameterBool();
-            request.id = n"requestSandevistanDeactivation";
-            request.value = true;
-            player.QueueEvent(request);
+            this.RequestDeactivation(player);
         }
 
         GameInstance.GetStatPoolsSystem(game).RequestSettingStatPoolMinValue(this.StatsID(player), gamedataStatPoolType.SandevistanCharge, player);
@@ -696,6 +772,266 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
         GameObject.PlaySoundEvent(player, n"ui_jingle_chip_malfunction");
         this.ShowMessage(this.T(n"MilitechHope-Msg-Overheat"), SimpleMessageType.Negative, 5.0);
+        this.Banner(this.T(n"MilitechHope-Banner-Overheat"), this.T(n"MilitechHope-Banner-OverheatSub"), 2, 4.0, false);
+        this.m_pendingWarning = 0;
+    }
+
+    // =====================================================================
+    //  Overheat warnings
+    // =====================================================================
+    private func UpdateWarning(player: ref<PlayerPuppet>, dt: Float) -> Void {
+        if this.m_pendingWarning == 0 {
+            return;
+        }
+        this.m_warnDelay -= dt;
+        if this.m_warnDelay > 0.0 {
+            return;
+        }
+        let kind = this.m_pendingWarning;
+        this.m_pendingWarning = 0;
+        if this.m_burnout > 0 || this.IsOverheated(player) {
+            return;
+        }
+
+        let temp = IntToString(RoundF(this.m_heat)) + " °C";
+        let risk = "";
+        if HopeConfig.BurnoutEnabled() && this.CountRecentActivations() >= HopeConfig.BurnoutActivations() - 2 {
+            risk = this.T(n"MilitechHope-Banner-BurnoutRisk");
+        }
+        if kind >= 2 {
+            this.ShowMessage(this.T(n"MilitechHope-Msg-OverheatWarning") + " " + temp + ". " + this.T(n"MilitechHope-Msg-NextOverheats"), SimpleMessageType.Negative, 4.0);
+            let sub = this.T(n"MilitechHope-Msg-NextOverheats");
+            if StrLen(risk) > 0 {
+                sub = sub + "  ·  " + risk;
+            }
+            this.Banner(this.T(n"MilitechHope-Banner-Critical") + "  " + temp, sub, 2, 4.0, false);
+            StatusEffectHelper.ApplyStatusEffect(player, HopeConfig.WarningEffect());
+            GameObject.PlaySoundEvent(player, n"ui_jingle_chip_malfunction");
+        } else {
+            this.ShowMessage(this.T(n"MilitechHope-Msg-HeatWarm") + " " + temp, SimpleMessageType.Neutral, 3.0);
+            let sub = this.T(n"MilitechHope-Banner-WarmSub");
+            if StrLen(risk) > 0 {
+                sub = risk;
+            }
+            this.Banner(this.T(n"MilitechHope-Banner-Warm") + "  " + temp, sub, 1, 3.0, false);
+        }
+    }
+
+    // =====================================================================
+    //  Mastery
+    // =====================================================================
+    public func MasteryLevel() -> Int32 {
+        let step = Max(1, HopeConfig.MasteryStep());
+        return Min(HopeConfig.MasteryMaxLevel(), this.m_masteryUses / step);
+    }
+
+    public func MasteryCapacity() -> Int32 {
+        return RoundF(HopeConfig.CapacityCost() - HopeConfig.MasteryCapacityPerLevel() * Cast<Float>(this.MasteryLevel()));
+    }
+
+    private func MasteryRoman(level: Int32) -> String {
+        if level == 1 {
+            return "I";
+        }
+        if level == 2 {
+            return "II";
+        }
+        if level == 3 {
+            return "III";
+        }
+        if level == 4 {
+            return "IV";
+        }
+        if level == 5 {
+            return "V";
+        }
+        return IntToString(level);
+    }
+
+    private func AddMasteryUse(player: ref<PlayerPuppet>) -> Void {
+        let before = this.MasteryLevel();
+        this.m_masteryUses += 1;
+        let after = this.MasteryLevel();
+        if after > before {
+            this.ApplyMastery(player);
+            let title = this.T(n"MilitechHope-Banner-Mastery") + " " + this.MasteryRoman(after);
+            let sub = this.T(n"MilitechHope-Banner-MasterySub") + " " + IntToString(this.MasteryCapacity());
+            this.Banner(title, sub, 0, 4.0, false);
+            this.ShowMessage(title + ". " + sub, SimpleMessageType.Neutral, 4.0);
+        }
+    }
+
+    // Keeps the mastery modifiers on the player in sync with the level
+    // (removed while Hope is not equipped).
+    private func ApplyMastery(player: ref<PlayerPuppet>) -> Void {
+        let wanted = this.MasteryLevel();
+        if wanted == this.m_masteryApplied {
+            return;
+        }
+        this.RemoveMastery(player);
+        this.m_masteryApplied = wanted;
+        if wanted <= 0 {
+            return;
+        }
+        let k = Cast<Float>(wanted);
+        // Lower capacity use: same approach as the ripperdoc tutorial (player stat).
+        ArrayPush(this.m_masteryMods, this.AddMod(player, gamedataStatType.HumanityAllocated, gameStatModifierType.Additive, -HopeConfig.MasteryCapacityPerLevel() * k));
+        ArrayPush(this.m_masteryMods, this.AddMod(player, gamedataStatType.AllDamageDonePercentBonus, gameStatModifierType.Additive, HopeConfig.MasteryDamagePerLevel() * k));
+        ArrayPush(this.m_masteryMods, this.AddMod(player, gamedataStatType.CritDamage, gameStatModifierType.Additive, HopeConfig.MasteryCritDamagePerLevel() * k));
+        ArrayPush(this.m_masteryMods, this.AddMod(player, gamedataStatType.TimeDilationSandevistanDuration, gameStatModifierType.Additive, HopeConfig.MasteryDurationPerLevel() * k));
+    }
+
+    private func RemoveMastery(player: ref<PlayerPuppet>) -> Void {
+        for mod in this.m_masteryMods {
+            this.RemoveMod(player, mod);
+        }
+        ArrayClear(this.m_masteryMods);
+        this.m_masteryApplied = -1;
+    }
+
+    private func MasteryText() -> String {
+        let level = this.MasteryLevel();
+        let text = this.T(n"MilitechHope-Hud-Mastery") + " " + this.MasteryRoman(level);
+        if level == 0 {
+            text = this.T(n"MilitechHope-Hud-Mastery") + " 0";
+        }
+        text = text + " (" + this.T(n"MilitechHope-Hud-Capacity") + " " + IntToString(this.MasteryCapacity()) + ")";
+        if level < HopeConfig.MasteryMaxLevel() {
+            let step = Max(1, HopeConfig.MasteryStep());
+            text = text + " " + IntToString(this.m_masteryUses % step) + "/" + IntToString(step);
+        }
+        return text;
+    }
+
+    // =====================================================================
+    //  Burnout
+    // =====================================================================
+    private func CountRecentActivations() -> Int32 {
+        let window = HopeConfig.BurnoutWindow();
+        while ArraySize(this.m_activationTimes) > 0 && this.m_clock - this.m_activationTimes[0] > window {
+            ArrayErase(this.m_activationTimes, 0);
+        }
+        return ArraySize(this.m_activationTimes);
+    }
+
+    public func IsBurningOut() -> Bool {
+        return this.m_burnout > 0;
+    }
+
+    private func StartBurnout(owner: ref<GameObject>) -> Void {
+        let player = owner as PlayerPuppet;
+        if !IsDefined(player) {
+            return;
+        }
+        this.RequestDeactivation(player);
+        GameInstance.GetStatPoolsSystem(this.GetGameInstance()).RequestSettingStatPoolMinValue(this.StatsID(player), gamedataStatPoolType.SandevistanCharge, player);
+
+        this.m_burnout = 1;
+        this.m_burnoutTimer = HopeConfig.BurnoutErrorSeconds();
+        this.m_burnoutErrorTimer = 0.0;
+        this.m_heat = HopeConfig.CriticalHeat();
+        this.m_pendingWarning = 0;
+        ArrayClear(this.m_activationTimes);
+
+        StatusEffectHelper.ApplyStatusEffect(player, HopeConfig.BurnoutSurgeEffect());
+        GameObject.PlaySoundEvent(player, n"ui_jingle_chip_malfunction");
+        this.Banner(this.T(n"MilitechHope-Banner-Burnout"), this.BurnoutErrorLine(), 2, HopeConfig.BurnoutErrorSeconds() + 1.0, true);
+    }
+
+    private func BurnoutErrorLine() -> String {
+        let code = "0x" + IntToString(RandRange(1000, 9999)) + "  ";
+        let pick = RandRange(0, 6);
+        let key = n"MilitechHope-Err-6";
+        if pick == 0 {
+            key = n"MilitechHope-Err-1";
+        } else {
+            if pick == 1 {
+                key = n"MilitechHope-Err-2";
+            } else {
+                if pick == 2 {
+                    key = n"MilitechHope-Err-3";
+                } else {
+                    if pick == 3 {
+                        key = n"MilitechHope-Err-4";
+                    } else {
+                        if pick == 4 {
+                            key = n"MilitechHope-Err-5";
+                        }
+                    }
+                }
+            }
+        }
+        return code + this.T(key);
+    }
+
+    private func UpdateBurnout(player: ref<PlayerPuppet>, dt: Float) -> Void {
+        this.m_burnoutTimer -= dt;
+        if this.m_burnout == 1 {
+            this.m_burnoutErrorTimer -= dt;
+            if this.m_burnoutErrorTimer <= 0.0 {
+                this.m_burnoutErrorTimer = 0.4;
+                let line = this.BurnoutErrorLine();
+                this.ShowMessage(this.T(n"MilitechHope-Msg-SystemError") + " " + line, SimpleMessageType.Negative, 1.0);
+                this.m_hud.UpdateBanner(this.T(n"MilitechHope-Banner-Burnout"), line);
+            }
+            if this.m_burnoutTimer <= 0.0 {
+                this.StartDischarge(player);
+            }
+            return;
+        }
+
+        let total = MaxF(1.0, HopeConfig.BurnoutSeconds());
+        let left = MaxF(0.0, this.m_burnoutTimer);
+        let ambient = HopeConfig.AmbientHeat();
+        this.m_heat = ambient + (this.m_burnoutHeatStart - ambient) * left / total;
+        this.m_hud.UpdateBanner(this.T(n"MilitechHope-Banner-Discharge"), this.T(n"MilitechHope-Banner-DischargeSub") + " " + IntToString(CeilF(left)) + " " + this.T(n"MilitechHope-Hud-Seconds"));
+        if this.m_burnoutTimer <= 0.0 {
+            this.EndBurnout(player, true);
+        }
+    }
+
+    // The discharge: the world stops, V is disarmed and can only walk.
+    private func StartDischarge(player: ref<PlayerPuppet>) -> Void {
+        this.m_burnout = 2;
+        this.m_burnoutTimer = HopeConfig.BurnoutSeconds();
+        this.m_burnoutHeatStart = this.m_heat;
+
+        let time = GameInstance.GetTimeSystem(this.GetGameInstance());
+        time.SetIgnoreTimeDilationOnLocalPlayerZero(true);
+        time.SetTimeDilation(n"MilitechHopeBurnout", HopeConfig.BurnoutTimeScale());
+
+        StatusEffectHelper.RemoveStatusEffect(player, HopeConfig.BurnoutSurgeEffect());
+        StatusEffectHelper.ApplyStatusEffect(player, HopeConfig.BurnoutEffect());
+        GameObject.PlaySoundEvent(player, n"ui_jingle_chip_malfunction");
+        this.ShowMessage(this.T(n"MilitechHope-Msg-Burnout"), SimpleMessageType.Negative, 5.0);
+        this.Banner(this.T(n"MilitechHope-Banner-Discharge"), this.T(n"MilitechHope-Banner-DischargeSub") + " " + IntToString(CeilF(HopeConfig.BurnoutSeconds())) + " " + this.T(n"MilitechHope-Hud-Seconds"), 2, HopeConfig.BurnoutSeconds() + 1.0, false);
+    }
+
+    private func ClearBurnoutTime() -> Void {
+        let time = GameInstance.GetTimeSystem(this.GetGameInstance());
+        time.UnsetTimeDilation(n"MilitechHopeBurnout");
+        time.SetIgnoreTimeDilationOnLocalPlayerZero(false);
+    }
+
+    private func EndBurnout(player: ref<PlayerPuppet>, notify: Bool) -> Void {
+        if this.m_burnout == 0 {
+            return;
+        }
+        let wasDischarge = this.m_burnout == 2;
+        this.m_burnout = 0;
+        this.m_burnoutTimer = 0.0;
+        if wasDischarge {
+            this.ClearBurnoutTime();
+        }
+        this.m_heat = HopeConfig.AmbientHeat();
+        if IsDefined(player) {
+            StatusEffectHelper.RemoveStatusEffect(player, HopeConfig.BurnoutEffect());
+            StatusEffectHelper.RemoveStatusEffect(player, HopeConfig.BurnoutSurgeEffect());
+        }
+        if notify {
+            this.ShowMessage(this.T(n"MilitechHope-Msg-BurnoutOver"), SimpleMessageType.Neutral, 4.0);
+            this.Banner(this.T(n"MilitechHope-Banner-Cooled"), this.T(n"MilitechHope-Banner-CooledSub"), 0, 3.0, false);
+        }
     }
 
     public func IsOverheated(owner: ref<GameObject>) -> Bool {
@@ -818,13 +1154,21 @@ public class MilitechHopeSystem extends ScriptableSystem {
         let game = this.GetGameInstance();
         let player = GetPlayer(game);
         if !IsDefined(player) || !player.IsAttached() || player.IsDead() {
+            if this.m_burnout > 0 {
+                this.EndBurnout(player, false);
+            }
             this.m_hud.HideGauge();
+            this.m_hud.HideBanner();
             return;
         }
         if GameInstance.GetTimeSystem(game).IsPausedState() {
             return;
         }
         this.m_clock += dt;
+        this.m_hud.Tick(dt);
+        if this.m_burnout > 0 {
+            this.UpdateBurnout(player, dt);
+        }
 
         this.m_implantTimer -= dt;
         if this.m_implantTimer <= 0.0 {
@@ -835,6 +1179,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         this.m_level = this.GetEquippedHopeLevel(player);
         if this.m_level < 0 {
             ArrayClear(this.m_slotUpgrades);
+            this.RemoveMastery(player);
             this.UpdateNewBreath(player);
             this.KillTrail();
             this.m_hud.HideGauge();
@@ -844,6 +1189,8 @@ public class MilitechHopeSystem extends ScriptableSystem {
         if !this.m_active {
             this.RefreshUpgrades(player);
         }
+        this.ApplyMastery(player);
+        this.UpdateWarning(player, dt);
 
         let charge = this.PoolPercent(player, gamedataStatPoolType.SandevistanCharge);
         let ambient = HopeConfig.AmbientHeat();
@@ -870,7 +1217,9 @@ public class MilitechHopeSystem extends ScriptableSystem {
             if charge >= HopeConfig.FullChargePercent() && !this.IsOverheated(player) {
                 cooling = MaxF(cooling, HopeConfig.FullChargeCoolingPerSecond());
             }
-            this.m_heat = MaxF(ambient, this.m_heat - cooling * dt);
+            if this.m_burnout == 0 {
+                this.m_heat = MaxF(ambient, this.m_heat - cooling * dt);
+            }
 
             if this.m_trailFade > 0.0 {
                 this.m_trailFade -= dt;
@@ -916,10 +1265,10 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
         let ambient = HopeConfig.AmbientHeat();
         let critical = HopeConfig.CriticalHeat();
-        let overheated = this.IsOverheated(player);
-        let visible = this.m_active || overheated || this.m_menuOpen || this.m_heat > ambient + 0.5
+        let overheated = this.IsOverheated(player) || this.m_burnout > 0;
+        let busy = this.m_active || overheated || this.m_menuOpen || this.m_heat > ambient + 0.5
             || (HopeConfig.HudShowInCombat() && player.IsInCombat());
-        if !visible {
+        if !busy && !HopeConfig.HudAlwaysVisible() {
             this.m_hud.HideGauge();
             return;
         }
@@ -934,7 +1283,10 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
 
         let state: String;
-        if overheated {
+        if this.m_burnout > 0 {
+            state = this.T(n"MilitechHope-Hud-Burnout");
+        } else {
+          if overheated {
             state = this.T(n"MilitechHope-Hud-Overheat");
         } else {
             if this.m_active {
@@ -960,12 +1312,13 @@ public class MilitechHopeSystem extends ScriptableSystem {
                 }
             }
         }
+        }
         state = state + "   " + this.T(n"MilitechHope-Hud-Charge") + " " + IntToString(RoundF(charge)) + "%";
 
-        let info = "";
+        let info = this.MasteryText();
         let modules = this.UpgradeNames();
         if StrLen(modules) > 0 {
-            info = this.T(n"MilitechHope-Hud-Module") + " " + modules;
+            info = info + "   " + this.T(n"MilitechHope-Hud-Module") + " " + modules;
         }
         let sync = this.SyncText();
         if StrLen(sync) > 0 {
@@ -977,7 +1330,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
         let fill = (this.m_heat - ambient) / (critical - ambient);
         let temp = IntToString(RoundF(this.m_heat)) + " °C";
-        this.m_hud.ShowGauge(this.T(n"MilitechHope-Hud-Title"), temp, fill, level, state, info);
+        this.m_hud.ShowGauge(this.T(n"MilitechHope-Hud-Title"), temp, fill, level, state, info, !busy);
     }
 
     // =====================================================================
@@ -1425,7 +1778,31 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
     // Lets the CET helper check that the scripts compiled and run.
     public func DebugVersion() -> String {
-        return "1.3.1";
+        return "1.4.0";
+    }
+
+    public func DebugGetMastery() -> Int32 {
+        return this.m_masteryUses;
+    }
+
+    public func DebugSetMastery(uses: Int32) -> Void {
+        this.m_masteryUses = Max(0, uses);
+        let player = GetPlayer(this.GetGameInstance());
+        if IsDefined(player) && this.GetEquippedHopeLevel(player) >= 0 {
+            this.ApplyMastery(player);
+        }
+    }
+
+    public func DebugBurnout() -> Void {
+        let player = GetPlayer(this.GetGameInstance());
+        if IsDefined(player) && this.m_burnout == 0 {
+            this.StartBurnout(player);
+        }
+    }
+
+    public func DebugWarning(kind: Int32) -> Void {
+        this.m_pendingWarning = Max(1, Min(2, kind));
+        this.m_warnDelay = 0.0;
     }
 
     public func DebugUnlockBroker() -> Void {

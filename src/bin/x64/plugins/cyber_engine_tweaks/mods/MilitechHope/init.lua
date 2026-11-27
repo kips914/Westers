@@ -20,12 +20,16 @@
 --   GetMod("MilitechHope").heat()         -- print core temperature
 --   GetMod("MilitechHope").cool()         -- cool the core down to 40 C
 --   GetMod("MilitechHope").contract()     -- finish the current broker contract
+--   GetMod("MilitechHope").mastery()      -- show mastery (activations, level, capacity cost)
+--   GetMod("MilitechHope").mastery(40)    -- set the activation count (20 per level, max 100)
+--   GetMod("MilitechHope").burnout()      -- trigger a burnout right now (test)
+--   GetMod("MilitechHope").warn(2)        -- show the overheat warning (1 = soft, 2 = critical)
 --
 -- Same thing without this helper:
 --   Game.AddToInventory("Items.MilitechHopeSandevistan", 1)
 
 local MilitechHope = {
-    version = "1.3.1",
+    version = "1.4.0",
     items = {
         [0] = "Items.MilitechHopeSandevistan",
         [1] = "Items.MilitechHopeSandevistanPlus",
@@ -238,6 +242,32 @@ function MilitechHope.contract()
     print("[MilitechHope] Current contract marked as done. Call the broker (F7) for the reward.")
 end
 
+function MilitechHope.mastery(uses)
+    local system = getSystem()
+    if not system then print("[MilitechHope] System not found.") return nil end
+    if uses ~= nil then
+        system:DebugSetMastery(math.floor(tonumber(uses) or 0))
+    end
+    local count = system:DebugGetMastery()
+    local level = math.min(5, math.floor(count / 20))
+    print(string.format("[MilitechHope] Mastery: %d activations, level %d, capacity cost %d", count, level, 50 - 3 * level))
+    return count
+end
+
+function MilitechHope.burnout()
+    local system = getSystem()
+    if not system then print("[MilitechHope] System not found.") return end
+    system:DebugBurnout()
+    print("[MilitechHope] Burnout triggered (close the console).")
+end
+
+function MilitechHope.warn(kind)
+    local system = getSystem()
+    if not system then print("[MilitechHope] System not found.") return end
+    system:DebugWarning(math.floor(tonumber(kind) or 2))
+    print("[MilitechHope] Warning queued (needs Hope equipped).")
+end
+
 registerForEvent("onInit", function()
     print("[MilitechHope] v" .. MilitechHope.version .. " loaded. Console: GetMod(\"MilitechHope\").give()")
 end)
@@ -293,6 +323,17 @@ registerForEvent("onDraw", function()
         if ImGui.Button("Remove modules") then MilitechHope.uninstall() end
         ImGui.SameLine()
         if ImGui.Button("Diagnostics") then MilitechHope.diag() end
+        ImGui.Separator()
+        if ImGui.Button("Mastery") then MilitechHope.mastery() end
+        ImGui.SameLine()
+        if ImGui.Button("Mastery +20") then
+            local system = getSystem()
+            if system then MilitechHope.mastery(system:DebugGetMastery() + 20) end
+        end
+        ImGui.SameLine()
+        if ImGui.Button("Test warning") then MilitechHope.warn(2) end
+        ImGui.SameLine()
+        if ImGui.Button("Test burnout") then MilitechHope.burnout() end
     end
     ImGui.End()
 end)

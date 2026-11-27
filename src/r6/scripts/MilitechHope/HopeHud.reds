@@ -1,6 +1,9 @@
 // Militech "Hope" Sandevistan — on-screen widgets (Codeware ink API):
-//   * heat gauge in degrees Celsius (left side of the HUD)
+//   * heat gauge in degrees Celsius (left side of the HUD), pulses when hot
+//   * warning banner (top centre): overheat warnings, burnout, mastery level-ups
 //   * broker menu (opened with the call hotkey once the broker's number is known)
+// Every widget is re-created when the HUD layer is rebuilt (loading a save,
+// leaving a menu), so the gauge never stays attached to a dead window.
 module MilitechHope
 
 public class HopeHud {
@@ -11,6 +14,17 @@ public class HopeHud {
     private let m_barFill: ref<inkRectangle>;
     private let m_state: ref<inkText>;
     private let m_info: ref<inkText>;
+    private let m_pulse: ref<inkAnimProxy>;
+    private let m_pulsing: Bool;
+
+    private let m_banner: ref<inkCanvas>;
+    private let m_bannerBack: ref<inkRectangle>;
+    private let m_bannerEdge: ref<inkRectangle>;
+    private let m_bannerText: ref<inkText>;
+    private let m_bannerSub: ref<inkText>;
+    private let m_bannerPulse: ref<inkAnimProxy>;
+    private let m_bannerTime: Float;
+    private let m_bannerGlitch: Bool;
 
     private let m_menu: ref<inkCanvas>;
     private let m_menuBack: ref<inkRectangle>;
@@ -47,6 +61,16 @@ public class HopeHud {
         this.m_barFill = null;
         this.m_state = null;
         this.m_info = null;
+        this.m_pulse = null;
+        this.m_pulsing = false;
+        this.m_banner = null;
+        this.m_bannerBack = null;
+        this.m_bannerEdge = null;
+        this.m_bannerText = null;
+        this.m_bannerSub = null;
+        this.m_bannerPulse = null;
+        this.m_bannerTime = 0.0;
+        this.m_bannerGlitch = false;
         this.m_menu = null;
         this.m_menuBack = null;
         this.m_menuTitle = null;
@@ -65,6 +89,50 @@ public class HopeHud {
             return null;
         }
         return layer.GetVirtualWindow();
+    }
+
+    // True when `widget` is still a child of the current HUD window.
+    private func IsAttached(root: wref<inkCompoundWidget>, widget: ref<inkWidget>, name: CName) -> Bool {
+        if !IsDefined(widget) || !IsDefined(root) {
+            return false;
+        }
+        return IsDefined(root.GetWidgetByPathName(name));
+    }
+
+    // Looping fade (PingPong) used for the hot gauge and the banner.
+    private func Pulse(widget: ref<inkWidget>, low: Float, seconds: Float) -> ref<inkAnimProxy> {
+        let anim = new inkAnimDef();
+        let fade = new inkAnimTransparency();
+        fade.SetStartTransparency(1.0);
+        fade.SetEndTransparency(low);
+        fade.SetDuration(seconds);
+        fade.SetType(inkanimInterpolationType.Sinusoidal);
+        fade.SetMode(inkanimInterpolationMode.EasyInOut);
+        anim.AddInterpolator(fade);
+        let options: inkAnimOptions;
+        options.loopType = inkanimLoopType.PingPong;
+        options.loopInfinite = true;
+        return widget.PlayAnimationWithOptions(anim, options);
+    }
+
+    // One-shot slide + fade in.
+    private func SlideIn(widget: ref<inkWidget>, fromX: Float, fromY: Float, toX: Float, toY: Float) -> Void {
+        let anim = new inkAnimDef();
+        let move = new inkAnimTranslation();
+        move.SetStartTranslation(Vector2(fromX, fromY));
+        move.SetEndTranslation(Vector2(toX, toY));
+        move.SetDuration(0.25);
+        move.SetType(inkanimInterpolationType.Quadratic);
+        move.SetMode(inkanimInterpolationMode.EasyOut);
+        anim.AddInterpolator(move);
+        let fade = new inkAnimTransparency();
+        fade.SetStartTransparency(0.0);
+        fade.SetEndTransparency(1.0);
+        fade.SetDuration(0.25);
+        fade.SetType(inkanimInterpolationType.Linear);
+        fade.SetMode(inkanimInterpolationMode.EasyOut);
+        anim.AddInterpolator(fade);
+        widget.PlayAnimation(anim);
     }
 
     private func MakeText(parent: ref<inkCanvas>, size: Int32, x: Float, y: Float) -> ref<inkText> {
@@ -98,13 +166,15 @@ public class HopeHud {
     //  Heat gauge
     // =====================================================================
     private func EnsureGauge() -> Bool {
-        if IsDefined(this.m_gauge) {
-            return true;
-        }
         let root = this.GetHudRoot();
         if !IsDefined(root) {
             return false;
         }
+        if this.IsAttached(root, this.m_gauge, n"MilitechHopeGauge") {
+            return true;
+        }
+        this.m_pulse = null;
+        this.m_pulsing = false;
         root.RemoveChildByName(n"MilitechHopeGauge");
 
         let gauge = new inkCanvas();
@@ -129,12 +199,30 @@ public class HopeHud {
 
     public func HideGauge() -> Void {
         if IsDefined(this.m_gauge) {
+            this.SetGaugePulse(false);
             this.m_gauge.SetVisible(false);
         }
     }
 
+    private func SetGaugePulse(on: Bool) -> Void {
+        if on == this.m_pulsing {
+            return;
+        }
+        this.m_pulsing = on;
+        if IsDefined(this.m_pulse) {
+            this.m_pulse.Stop(true);
+            this.m_pulse = null;
+        }
+        if on {
+            this.m_pulse = this.Pulse(this.m_temp, 0.25, 0.35);
+        } else {
+            this.m_temp.SetOpacity(1.0);
+        }
+    }
+
     // fill: 0..1 heat between idle and critical; level: 0 normal, 1 warm, 2 hot
-    public func ShowGauge(title: String, temp: String, fill: Float, level: Int32, state: String, info: String) -> Void {
+    // idle: dimmed gauge (implant equipped, nothing happening)
+    public func ShowGauge(title: String, temp: String, fill: Float, level: Int32, state: String, info: String, idle: Bool) -> Void {
         if !this.EnsureGauge() {
             return;
         }
@@ -154,19 +242,127 @@ public class HopeHud {
         this.m_state.SetText(state);
         this.m_state.SetTintColor(color);
         this.m_info.SetText(info);
+        if idle {
+            this.m_gauge.SetOpacity(HopeConfig.HudIdleOpacity());
+        } else {
+            this.m_gauge.SetOpacity(1.0);
+        }
+        this.SetGaugePulse(level >= 2);
         this.m_gauge.SetVisible(true);
+    }
+
+    // =====================================================================
+    //  Warning banner
+    // =====================================================================
+    private func EnsureBanner() -> Bool {
+        let root = this.GetHudRoot();
+        if !IsDefined(root) {
+            return false;
+        }
+        if this.IsAttached(root, this.m_banner, n"MilitechHopeBanner") {
+            return true;
+        }
+        this.m_bannerPulse = null;
+        root.RemoveChildByName(n"MilitechHopeBanner");
+
+        let banner = new inkCanvas();
+        banner.SetName(n"MilitechHopeBanner");
+        banner.SetAnchor(inkEAnchor.TopCenter);
+        banner.SetAnchorPoint(0.5, 0.0);
+        banner.SetSize(1400.0, 150.0);
+        banner.SetTranslation(0.0, 180.0);
+        banner.SetVisible(false);
+        banner.Reparent(root);
+        this.m_banner = banner;
+
+        this.m_bannerBack = this.MakeRect(banner, 0.0, 0.0, 1400.0, 150.0, HopeHud.Rgb(0.03, 0.02, 0.03, 0.78));
+        this.m_bannerEdge = this.MakeRect(banner, 0.0, 0.0, 1400.0, 6.0, HopeHud.ColorHot());
+        this.m_bannerText = this.MakeText(banner, 54, 40.0, 22.0);
+        this.m_bannerSub = this.MakeText(banner, 30, 40.0, 92.0);
+        this.m_bannerSub.SetTintColor(HopeHud.ColorDim());
+        return true;
+    }
+
+    // level: 0 info (blue), 1 warning (amber), 2 danger (red, pulsing)
+    // glitch: jitter the banner every tick (burnout error storm)
+    public func ShowBanner(text: String, sub: String, level: Int32, seconds: Float, glitch: Bool) -> Void {
+        if !this.EnsureBanner() {
+            return;
+        }
+        let color = HopeHud.ColorNormal();
+        if level == 1 {
+            color = HopeHud.ColorWarm();
+        } else {
+            if level >= 2 {
+                color = HopeHud.ColorHot();
+            }
+        }
+        let wasVisible = this.m_banner.IsVisible();
+        this.m_bannerText.SetText(text);
+        this.m_bannerText.SetTintColor(color);
+        this.m_bannerSub.SetText(sub);
+        this.m_bannerEdge.SetTintColor(color);
+        this.m_bannerTime = seconds;
+        this.m_bannerGlitch = glitch;
+        if IsDefined(this.m_bannerPulse) {
+            this.m_bannerPulse.Stop(true);
+            this.m_bannerPulse = null;
+        }
+        this.m_bannerText.SetOpacity(1.0);
+        if level >= 2 {
+            this.m_bannerPulse = this.Pulse(this.m_bannerText, 0.35, 0.25);
+        }
+        this.m_banner.SetVisible(true);
+        if !wasVisible {
+            this.SlideIn(this.m_banner, 0.0, 120.0, 0.0, 180.0);
+        }
+    }
+
+    // Updates only the texts of a visible banner (countdowns).
+    public func UpdateBanner(text: String, sub: String) -> Void {
+        if IsDefined(this.m_banner) && this.m_banner.IsVisible() {
+            this.m_bannerText.SetText(text);
+            this.m_bannerSub.SetText(sub);
+        }
+    }
+
+    public func HideBanner() -> Void {
+        this.m_bannerTime = 0.0;
+        if IsDefined(this.m_bannerPulse) {
+            this.m_bannerPulse.Stop(true);
+            this.m_bannerPulse = null;
+        }
+        if IsDefined(this.m_banner) {
+            this.m_banner.SetVisible(false);
+            this.m_banner.SetTranslation(0.0, 180.0);
+        }
+    }
+
+    // Called by the system 5 times per second (real time).
+    public func Tick(dt: Float) -> Void {
+        if !IsDefined(this.m_banner) || !this.m_banner.IsVisible() {
+            return;
+        }
+        if this.m_bannerGlitch {
+            this.m_banner.SetTranslation(RandRangeF(-24.0, 24.0), 180.0 + RandRangeF(-10.0, 10.0));
+            this.m_bannerBack.SetOpacity(RandRangeF(0.55, 1.0));
+        }
+        this.m_bannerTime -= dt;
+        if this.m_bannerTime <= 0.0 {
+            this.HideBanner();
+        }
     }
 
     // =====================================================================
     //  Broker menu
     // =====================================================================
     private func EnsureMenu(rows: Int32) -> Bool {
-        if IsDefined(this.m_menu) && ArraySize(this.m_menuRows) >= rows {
-            return true;
-        }
         let root = this.GetHudRoot();
         if !IsDefined(root) {
             return false;
+        }
+        if this.IsAttached(root, this.m_menu, n"MilitechHopeBroker") && ArraySize(this.m_menuRows) >= rows {
+            return true;
         }
         root.RemoveChildByName(n"MilitechHopeBroker");
 

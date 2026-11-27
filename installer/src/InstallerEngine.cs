@@ -125,7 +125,7 @@ namespace MilitechHopeInstaller
         private static HttpWebRequest Request(string url)
         {
             var req = (HttpWebRequest)WebRequest.Create(url);
-            req.UserAgent = "MilitechHopeInstaller/1.1";
+            req.UserAgent = "MilitechHopeInstaller/" + typeof(InstallerEngine).Assembly.GetName().Version;
             req.Accept = url.Contains("api.github.com") ? "application/vnd.github+json" : "application/octet-stream";
             req.AllowAutoRedirect = true;
             req.Timeout = 60000;

@@ -134,6 +134,9 @@ def tier(t):
         pk.append(ui("MilitechHope-UpgradeSlot"))
     # 6. flaw
     pk.append(ui(f"MilitechHope-Overheat-{'T5PP' if k == 'T5PP' else 'T5'}"))
+    # 7. mastery and burnout (redscript)
+    pk.append(ui("MilitechHope-Mastery"))
+    pk.append(ui("MilitechHope-Burnout"))
     out.append("\tOnEquip =\n\t[\n" + ",\n".join(pk) + "\n\t];")
     out.append(f"\tnextUpgradeItem = \"{t['next']}\";\n}}")
     return "\n".join(out)
@@ -256,6 +259,120 @@ MilitechHope.SandevistanOverheatShort : MilitechHope.SandevistanOverheat
 \t\t\t} : ConstantStatModifier
 \t\t];
 \t} : StatModifierGroup;
+}
+
+// ---------------------------------------------------------------------
+//  Visual effects and burnout (applied by redscript)
+// ---------------------------------------------------------------------
+// Short screen glitch with the overheat warning.
+MilitechHope.HeatWarning : BaseStatusEffect.NetwatcherGeneral
+{
+\tsavable = false;
+\tisAffectedByTimeDilationPlayer = false;
+\tgameplayTags = [ "MilitechHopeWarning" ];
+\tVFX =
+\t[
+\t\t{
+\t\t\tname = "hacking_glitch_low";
+\t\t} : StatusEffectFX
+\t];
+\tduration =
+\t{
+\t\tstatModifiers =
+\t\t[
+\t\t\t{
+\t\t\t\tstatType = "BaseStats.MaxDuration";
+\t\t\t\tmodifierType = "Additive";
+\t\t\t\tvalue = 1.5f;
+\t\t\t} : ConstantStatModifier
+\t\t];
+\t} : StatModifierGroup;
+\tpackages = [];
+}
+
+// Burnout, phase 1: storm of system errors (heavy glitch, Sandevistan offline).
+MilitechHope.BurnoutSurge : BaseStatusEffect.NetwatcherGeneral
+{
+\tsavable = false;
+\tisAffectedByTimeDilationPlayer = false;
+\tisAffectedByTimeDilationNPC = false;
+\tgameplayTags = [ "MilitechHopeBurnout" ];
+\tVFX =
+\t[
+\t\t{
+\t\t\tname = "hacking_glitch_heavy";
+\t\t} : StatusEffectFX
+\t];
+\tduration =
+\t{
+\t\tstatModifiers =
+\t\t[
+\t\t\t{
+\t\t\t\tstatType = "BaseStats.MaxDuration";
+\t\t\t\tmodifierType = "Additive";
+\t\t\t\tvalue = 4f;
+\t\t\t} : ConstantStatModifier
+\t\t];
+\t} : StatModifierGroup;
+\tpackages =
+\t[
+\t\t{
+\t\t\tstats =
+\t\t\t[
+\t\t\t\t{
+\t\t\t\t\tstatType = "BaseStats.HasSandevistan";
+\t\t\t\t\tmodifierType = "Multiplier";
+\t\t\t\t\tvalue = 0f;
+\t\t\t\t} : ConstantStatModifier
+\t\t\t];
+\t\t} : GameplayLogicPackage
+\t];
+}
+
+// Burnout, phase 2: discharge. The world is stopped by redscript; V is
+// disarmed (no weapons, combat, cyberware, jumping or sprinting) and can only
+// walk until the core cools down. Expires on its own as a safety net.
+MilitechHope.Burnout : GameplayRestriction.NoCombat
+{
+\tsavable = false;
+\tisAffectedByTimeDilationPlayer = false;
+\tisAffectedByTimeDilationNPC = false;
+\tgameplayTags += [ "NoWeapons", "NoJump", "NoRadialMenus", "NoScanning", "MilitechHopeBurnout" ];
+\tVFX =
+\t[
+\t\t{
+\t\t\tname = "hacking_glitch_low";
+\t\t} : StatusEffectFX
+\t];
+\tduration =
+\t{
+\t\tstatModifiers =
+\t\t[
+\t\t\t{
+\t\t\t\tstatType = "BaseStats.MaxDuration";
+\t\t\t\tmodifierType = "Additive";
+\t\t\t\tvalue = 22f;
+\t\t\t} : ConstantStatModifier
+\t\t];
+\t} : StatModifierGroup;
+\tpackages +=
+\t[
+\t\t{
+\t\t\tstats =
+\t\t\t[
+\t\t\t\t{
+\t\t\t\t\tstatType = "BaseStats.CanJump";
+\t\t\t\t\tmodifierType = "Multiplier";
+\t\t\t\t\tvalue = 0f;
+\t\t\t\t} : ConstantStatModifier,
+\t\t\t\t{
+\t\t\t\t\tstatType = "BaseStats.CanSprint";
+\t\t\t\t\tmodifierType = "Multiplier";
+\t\t\t\t\tvalue = 0f;
+\t\t\t\t} : ConstantStatModifier
+\t\t\t];
+\t\t} : GameplayLogicPackage
+\t];
 }
 
 // ---------------------------------------------------------------------

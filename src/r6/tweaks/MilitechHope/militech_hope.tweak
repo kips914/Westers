@@ -228,6 +228,18 @@ Items.MilitechHopeSandevistan : Items.SandevistanBase
 			{
 				localizedDescription = "LocKey#MilitechHope-Overheat-T5";
 			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mastery";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Burnout";
+			};
 		} : GameplayLogicPackage
 	];
 	nextUpgradeItem = "Items.MilitechHopeSandevistanPlus";
@@ -394,6 +406,18 @@ Items.MilitechHopeSandevistanPlus : Items.MilitechHopeSandevistan
 			UIData =
 			{
 				localizedDescription = "LocKey#MilitechHope-Overheat-T5";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mastery";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Burnout";
 			};
 		} : GameplayLogicPackage
 	];
@@ -575,6 +599,18 @@ Items.MilitechHopeSandevistanPlusPlus : Items.MilitechHopeSandevistan
 			{
 				localizedDescription = "LocKey#MilitechHope-Overheat-T5PP";
 			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Mastery";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Burnout";
+			};
 		} : GameplayLogicPackage
 	];
 	nextUpgradeItem = "";
@@ -596,6 +632,120 @@ MilitechHope.SandevistanOverheatShort : MilitechHope.SandevistanOverheat
 			} : ConstantStatModifier
 		];
 	} : StatModifierGroup;
+}
+
+// ---------------------------------------------------------------------
+//  Visual effects and burnout (applied by redscript)
+// ---------------------------------------------------------------------
+// Short screen glitch with the overheat warning.
+MilitechHope.HeatWarning : BaseStatusEffect.NetwatcherGeneral
+{
+	savable = false;
+	isAffectedByTimeDilationPlayer = false;
+	gameplayTags = [ "MilitechHopeWarning" ];
+	VFX =
+	[
+		{
+			name = "hacking_glitch_low";
+		} : StatusEffectFX
+	];
+	duration =
+	{
+		statModifiers =
+		[
+			{
+				statType = "BaseStats.MaxDuration";
+				modifierType = "Additive";
+				value = 1.5f;
+			} : ConstantStatModifier
+		];
+	} : StatModifierGroup;
+	packages = [];
+}
+
+// Burnout, phase 1: storm of system errors (heavy glitch, Sandevistan offline).
+MilitechHope.BurnoutSurge : BaseStatusEffect.NetwatcherGeneral
+{
+	savable = false;
+	isAffectedByTimeDilationPlayer = false;
+	isAffectedByTimeDilationNPC = false;
+	gameplayTags = [ "MilitechHopeBurnout" ];
+	VFX =
+	[
+		{
+			name = "hacking_glitch_heavy";
+		} : StatusEffectFX
+	];
+	duration =
+	{
+		statModifiers =
+		[
+			{
+				statType = "BaseStats.MaxDuration";
+				modifierType = "Additive";
+				value = 4f;
+			} : ConstantStatModifier
+		];
+	} : StatModifierGroup;
+	packages =
+	[
+		{
+			stats =
+			[
+				{
+					statType = "BaseStats.HasSandevistan";
+					modifierType = "Multiplier";
+					value = 0f;
+				} : ConstantStatModifier
+			];
+		} : GameplayLogicPackage
+	];
+}
+
+// Burnout, phase 2: discharge. The world is stopped by redscript; V is
+// disarmed (no weapons, combat, cyberware, jumping or sprinting) and can only
+// walk until the core cools down. Expires on its own as a safety net.
+MilitechHope.Burnout : GameplayRestriction.NoCombat
+{
+	savable = false;
+	isAffectedByTimeDilationPlayer = false;
+	isAffectedByTimeDilationNPC = false;
+	gameplayTags += [ "NoWeapons", "NoJump", "NoRadialMenus", "NoScanning", "MilitechHopeBurnout" ];
+	VFX =
+	[
+		{
+			name = "hacking_glitch_low";
+		} : StatusEffectFX
+	];
+	duration =
+	{
+		statModifiers =
+		[
+			{
+				statType = "BaseStats.MaxDuration";
+				modifierType = "Additive";
+				value = 22f;
+			} : ConstantStatModifier
+		];
+	} : StatModifierGroup;
+	packages +=
+	[
+		{
+			stats =
+			[
+				{
+					statType = "BaseStats.CanJump";
+					modifierType = "Multiplier";
+					value = 0f;
+				} : ConstantStatModifier,
+				{
+					statType = "BaseStats.CanSprint";
+					modifierType = "Multiplier";
+					value = 0f;
+				} : ConstantStatModifier
+			];
+		} : GameplayLogicPackage
+	];
 }
 
 // ---------------------------------------------------------------------
