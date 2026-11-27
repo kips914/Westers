@@ -48,9 +48,13 @@ jobs:
           deps=("$RUNNER_TEMP/ref/codeware/scripts")
           if [ -d tools/script-check/stubs ]; then deps+=("$PWD/tools/script-check/stubs"); fi
           status=0
+          export RUST_BACKTRACE=1
           "$RUNNER_TEMP/ref/redscript/target/release/examples/mh_check" \
             "$RUNNER_TEMP/ref/game/scripts" "$PWD/src/r6/scripts/MilitechHope" "${deps[@]}" > check.log 2>&1 || status=$?
           cat check.log
           grep -E "^\[(ERROR|WARN)" check.log | head -50 | while IFS= read -r line; do echo "::warning title=redscript::$line"; done
           echo "::notice title=summary::$(grep -E '^(loaded|game scripts|mod):' check.log | tr '\n' ' ')"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
+            grep -v "^  excluded" check.log | grep -iE "panic|error|thread|at |^ *[0-9]+:" | head -30 | while IFS= read -r line; do echo "::warning title=crash::$line"; done
+          fi
           exit $status
