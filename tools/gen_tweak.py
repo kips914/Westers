@@ -152,8 +152,9 @@ HEADER = """// =================================================================
 //  Overheat (redscript, heat in degrees C): 40 C idle, 120 C = shutdown + 12 s lockout.
 //    Each activation heats 22 C (30 C on Tier 5++), half as much from a full charge;
 //    a fully recharged implant cools back to 40 C.
-//  Tier 5++ has an upgrade slot (AttachmentSlots.SandevistanSlot1) for six
+//  Tier 5++ has two upgrade slots (AttachmentSlots.SandevistanSlot1/2) for six
 //  Militech upgrade modules (logic in redscript), sold by the broker or given by console.
+//  Both installed modules work at the same time.
 //  Headshot / mitigation / armor apply only while the Sandevistan is active.
 // =====================================================================
 
@@ -218,7 +219,7 @@ Items.MilitechHopeMod_{rec} : Items.Fragment
 \tlocalizedDescription = "LocKey#MilitechHope-Mod-Lore";
 \tquality = "Quality.Legendary";
 \ticonPath = "cwf_sandevistan1";
-\tplacementSlots = [ "AttachmentSlots.SandevistanSlot1" ];
+\tplacementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 \ttags += [ "itemPart", "MilitechHopeUpgrade" ];
 \tOnAttach =
 \t[
@@ -252,7 +253,7 @@ MilitechHope.SandevistanOverheatShort : MilitechHope.SandevistanOverheat
 }
 
 // ---------------------------------------------------------------------
-//  Tier 5++ blueprint: one upgrade slot
+//  Tier 5++ blueprint: two upgrade slots
 // ---------------------------------------------------------------------
 [ notQueryable ]
 Items.MilitechHopeSandevistanBlueprint : ItemBlueprint
@@ -264,13 +265,16 @@ Items.MilitechHopeSandevistanBlueprint : ItemBlueprint
 \t\t[
 \t\t\t{
 \t\t\t\tslot = "AttachmentSlots.SandevistanSlot1";
+\t\t\t},
+\t\t\t{
+\t\t\t\tslot = "AttachmentSlots.SandevistanSlot2";
 \t\t\t}
 \t\t];
 \t};
 }
 
 // ---------------------------------------------------------------------
-//  Upgrade modules (Tier 5++ slot). Effects are scripted in redscript.
+//  Upgrade modules (Tier 5++ slots). Effects are scripted in redscript.
 // ---------------------------------------------------------------------
 """ + "\n".join(upgrade(r, k) for r, k in UPGRADES) + """
 // ---------------------------------------------------------------------

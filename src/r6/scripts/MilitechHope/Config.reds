@@ -11,8 +11,15 @@ public abstract class HopeConfig {
     public static func OverheatEffectShort() -> TweakDBID { return t"MilitechHope.SandevistanOverheatShort"; }
     public static func DealerCard() -> TweakDBID { return t"Items.MilitechHopeDealerCard"; }
 
-    // Upgrade slot on Tier 5++ (vanilla attachment slot, see the .tweak blueprint)
-    public static func UpgradeSlot() -> TweakDBID { return t"AttachmentSlots.SandevistanSlot1"; }
+    // Two upgrade slots on Tier 5++ (vanilla attachment slots, see the .tweak blueprint).
+    // They show up as module slots when you inspect the implant in the cyberware screen.
+    public static func UpgradeSlotCount() -> Int32 { return 2; }
+    public static func UpgradeSlot(i: Int32) -> TweakDBID {
+        if i == 1 {
+            return t"AttachmentSlots.SandevistanSlot2";
+        }
+        return t"AttachmentSlots.SandevistanSlot1";
+    }
 
     // Hope level (0 = T5, 1 = T5+, 2 = T5++) that unlocks real-speed bullets.
     public static func RealSpeedBulletsLevel() -> Int32 { return 2; }

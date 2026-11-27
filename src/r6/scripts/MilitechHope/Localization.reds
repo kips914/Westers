@@ -40,8 +40,8 @@ public class HopeRussian extends ModLocalizationPackage {
         this.Text("MilitechHope-Msg-LevelLocked", "Входящее сообщение зашифровано. Нужен уровень 40, чтобы его прочитать.");
         this.Text("MilitechHope-Msg-Sms", "Новое сообщение [неизвестный номер]: «Видел тебя на набережной. Контейнер Militech, который «потерялся» в порту, теперь у колумбария на кладбище. Метку я поставил. Забирай, пока NUSA не спохватились».");
         this.Text("MilitechHope-Msg-Complete", "Получено: Сандевистан Militech «Надежда». Задание «Надежда» выполнено.");
-        this.Text("MilitechHope-UpgradeSlot", "СЛОТ УЛУЧШЕНИЯ (макс. уровень) — в «Надежду» можно установить один модуль Militech: Разряд, Быстрая перезарядка, Новое дыхание, Фазовый щит, Берсерк или Настоящее безумие.");
-        this.Text("MilitechHope-Mod-Lore", "Модуль прошивки Militech для Сандевистана «Надежда» 5++. Устанавливается в слот улучшения импланта. В реестрах Militech не значится.");
+        this.Text("MilitechHope-UpgradeSlot", "СЛОТЫ УЛУЧШЕНИЙ (макс. уровень) — 2 слота под модули Militech, оба работают одновременно: Разряд, Быстрая перезарядка, Новое дыхание, Фазовый щит, Берсерк, Настоящее безумие. Слоты видны, если открыть имплант на экране киберимплантов.");
+        this.Text("MilitechHope-Mod-Lore", "Модуль прошивки Militech для Сандевистана «Надежда» 5++. Ставится в один из двух слотов улучшений импланта. В реестрах Militech не значится.");
         this.Text("MilitechHope-Mod-Discharge-Name", "Модуль «Разряд»");
         this.Text("MilitechHope-Mod-Discharge-Desc", "РАЗРЯД — когда Сандевистан отключается во время боя, остаток заряда бьёт током всех врагов в радиусе 2 м.");
         this.Text("MilitechHope-Mod-QuickCharge-Name", "Модуль «Быстрая перезарядка»");
@@ -74,7 +74,7 @@ public class HopeRussian extends ModLocalizationPackage {
         this.Text("MilitechHope-Hud-Madness", "БЕЗУМИЕ");
         this.Text("MilitechHope-Hud-Phase", "ЩИТ");
         this.Text("MilitechHope-Hud-Berserk", "БЕРСЕРК");
-        this.Text("MilitechHope-Hud-Module", "Модуль:");
+        this.Text("MilitechHope-Hud-Module", "Модули:");
         this.Text("MilitechHope-Hud-Sync", "Синхронизация:");
         this.Text("MilitechHope-Implant-Axolotl", "Аксолотль");
         this.Text("MilitechHope-Implant-Cox2", "Кокс-2");
@@ -93,7 +93,7 @@ public class HopeRussian extends ModLocalizationPackage {
         this.Text("MilitechHope-Broker-ContractNone", "Контрактов больше нет");
         this.Text("MilitechHope-Broker-ContractTaken", "Контракт принят. Убийств под «Надеждой» нужно:");
         this.Text("MilitechHope-Broker-ContractReward", "Награда получена:");
-        this.Text("MilitechHope-Broker-Install", "Установить модуль в «Надежду» 5++ (по кругу)");
+        this.Text("MilitechHope-Broker-Install", "Установить модуль в «Надежду» 5++ (2 слота, по кругу)");
         this.Text("MilitechHope-Broker-HangUp", "Положить трубку");
         this.Text("MilitechHope-Broker-Balance", "Баланс:");
         this.Text("MilitechHope-Broker-NoMoney", "«Не хватает эдди. Приходи, когда будут.»");
@@ -101,7 +101,7 @@ public class HopeRussian extends ModLocalizationPackage {
         this.Text("MilitechHope-Broker-InstalledOk", "Установлено:");
         this.Text("MilitechHope-Broker-NeedT5PP", "Нужна установленная «Надежда» 5++.");
         this.Text("MilitechHope-Broker-NoUpgrades", "Нет модулей для установки.");
-        this.Text("MilitechHope-Broker-InstallFailed", "Не удалось установить модуль.");
+        this.Text("MilitechHope-Broker-InstallFailed", "Не удалось установить модуль. «Надежда» 5++ из версии 1.3.0 имеет один слот — возьмите новую.");
         this.Text("MilitechHope-Broker-Hint", "Стрелки вверх/вниз — выбор   Enter — подтвердить   Backspace или F7 — положить трубку");
     }
 }
@@ -130,8 +130,8 @@ public class HopeEnglish extends ModLocalizationPackage {
         this.Text("MilitechHope-Msg-LevelLocked", "Incoming message is encrypted. You need level 40 to read it.");
         this.Text("MilitechHope-Msg-Sms", "New message [unknown number]: \"Saw you at the waterfront. The Militech case that got 'lost' at the port is now by the Columbarium at the cemetery. I marked it for you. Grab it before NUSA notices.\"");
         this.Text("MilitechHope-Msg-Complete", "Received: Militech \"Hope\" Sandevistan. Job \"Hope\" complete.");
-        this.Text("MilitechHope-UpgradeSlot", "UPGRADE SLOT (max level): Hope accepts one Militech module: Discharge, Quick Recharge, New Breath, Phase Shield, Berserk or True Madness.");
-        this.Text("MilitechHope-Mod-Lore", "Militech firmware module for the Hope 5++ Sandevistan. Goes into the implant's upgrade slot. Not listed in any Militech registry.");
+        this.Text("MilitechHope-UpgradeSlot", "UPGRADE SLOTS (max level): 2 slots for Militech modules, both work at the same time: Discharge, Quick Recharge, New Breath, Phase Shield, Berserk, True Madness. The slots show up when you inspect the implant on the cyberware screen.");
+        this.Text("MilitechHope-Mod-Lore", "Militech firmware module for the Hope 5++ Sandevistan. Goes into one of the implant's two upgrade slots. Not listed in any Militech registry.");
         this.Text("MilitechHope-Mod-Discharge-Name", "Discharge Module");
         this.Text("MilitechHope-Mod-Discharge-Desc", "DISCHARGE: when Sandevistan ends during combat, the leftover charge shocks every enemy within 2 m.");
         this.Text("MilitechHope-Mod-QuickCharge-Name", "Quick Recharge Module");
@@ -164,7 +164,7 @@ public class HopeEnglish extends ModLocalizationPackage {
         this.Text("MilitechHope-Hud-Madness", "MADNESS");
         this.Text("MilitechHope-Hud-Phase", "SHIELD");
         this.Text("MilitechHope-Hud-Berserk", "BERSERK");
-        this.Text("MilitechHope-Hud-Module", "Module:");
+        this.Text("MilitechHope-Hud-Module", "Modules:");
         this.Text("MilitechHope-Hud-Sync", "Synced:");
         this.Text("MilitechHope-Implant-Axolotl", "Axolotl");
         this.Text("MilitechHope-Implant-Cox2", "Cox-2");
@@ -183,7 +183,7 @@ public class HopeEnglish extends ModLocalizationPackage {
         this.Text("MilitechHope-Broker-ContractNone", "No more contracts");
         this.Text("MilitechHope-Broker-ContractTaken", "Contract accepted. Kills under Hope needed:");
         this.Text("MilitechHope-Broker-ContractReward", "Reward received:");
-        this.Text("MilitechHope-Broker-Install", "Install a module into Hope 5++ (cycles)");
+        this.Text("MilitechHope-Broker-Install", "Install a module into Hope 5++ (2 slots, cycles)");
         this.Text("MilitechHope-Broker-HangUp", "Hang up");
         this.Text("MilitechHope-Broker-Balance", "Balance:");
         this.Text("MilitechHope-Broker-NoMoney", "\"Not enough eddies. Come back when you have them.\"");
@@ -191,7 +191,7 @@ public class HopeEnglish extends ModLocalizationPackage {
         this.Text("MilitechHope-Broker-InstalledOk", "Installed:");
         this.Text("MilitechHope-Broker-NeedT5PP", "You need Hope 5++ equipped.");
         this.Text("MilitechHope-Broker-NoUpgrades", "No modules to install.");
-        this.Text("MilitechHope-Broker-InstallFailed", "Could not install the module.");
+        this.Text("MilitechHope-Broker-InstallFailed", "Could not install the module. A Hope 5++ from version 1.3.0 has only one slot: get a new one.");
         this.Text("MilitechHope-Broker-Hint", "Arrows Up/Down: select   Enter: confirm   Backspace or F7: hang up");
     }
 }
