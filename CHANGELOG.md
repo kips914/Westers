@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.4.0 — 2026-11-27
+
+* Module icons: chip-style 3D renders for the six upgrade modules (`tools/make_module_icons.py`). Each module has its own xbm and inkatlas, plus a `UIIcon.militech_hope_mod_*` record.
+* HUD (`HopeHud.reds`):
+  * widgets are re-created whenever they are no longer attached to the current `inkHUDLayer` window (after loading a save or leaving a menu);
+  * the gauge is always visible while Hope is equipped, dimmed when idle (`HudAlwaysVisible`, `HudIdleOpacity`);
+  * the temperature pulses (inkAnimTransparency, PingPong) from 100 °C;
+  * new top banner with slide-in and pulse animations and a glitch jitter mode.
+* Overheat warnings are back:
+  * a critical warning when the next activation would overheat, with a banner, a screen glitch (`MilitechHope.HeatWarning`), a sound and a message;
+  * a soft warning from 80 °C;
+  * warnings are shown 0.4 s after activation from the fast loop.
+* Mastery: a persistent activation counter, with a level every 20 activations (max 5). Each level gives:
+  * −3 `HumanityAllocated` on the player;
+  * +2 % `AllDamageDonePercentBonus`;
+  * +3 `CritDamage`;
+  * +0.3 s Sandevistan duration;
+  * −3 % heat and +6 % cooling.
+
+  The banner announces level-ups.
+* Burnout: from the 10th activation within 5 minutes, each activation has a 15 % chance to burn out.
+  * Phase 1 lasts 3 s: an error storm (`MilitechHope.BurnoutSurge`, heavy glitch, Sandevistan offline).
+  * Phase 2 lasts 20 s: a discharge. Global time dilation is set to 0.0001 while the player ignores dilation. `MilitechHope.Burnout`, based on `GameplayRestriction.NoCombat`, adds NoWeapons, NoJump, NoRadialMenus and NoScanning tags and sets CanJump/CanSprint ×0.
+* CET: `mastery([n])`, `burnout()`, `warn(kind)` and matching overlay buttons. `DebugVersion` is now 1.4.0.
+* Installer:
+  * updates the mod from the latest GitHub release (button, startup check, `--update [--force]`);
+  * the package now includes `r6/scripts/MilitechHope/VERSION.txt`;
+  * version 1.4.0; the User-Agent follows the assembly version.
+* CI: new `check-scripts.yml` type-checks the mod scripts with the redscript 1.0.2 frontend against the game sources and Codeware. Known checker artifacts are classified separately.
+
 ## v1.3.1 — 2026-11-27
 
 * Tier 5++ now has two upgrade slots: the blueprint gets `AttachmentSlots.SandevistanSlot2`, the modules accept both slots, and the two installed modules work at the same time.

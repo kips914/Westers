@@ -26,6 +26,8 @@ namespace MilitechHopeInstaller
         private readonly TextBox _log = new TextBox();
         private readonly Button _install = new Button();
         private readonly Button _remove = new Button();
+        private readonly Button _update = new Button();
+        private readonly Label _updateInfo = new Label();
         private readonly Button _open = new Button();
         private readonly Button _browse = new Button();
         private readonly Button _detect = new Button();
@@ -52,6 +54,45 @@ namespace MilitechHopeInstaller
 
             if (!InstallerEngine.HasEmbeddedMod())
                 AppendLog("Пакет мода не встроен — он будет скачан из релизов GitHub.");
+
+            Shown += async (s, e) => await CheckUpdatesAsync();
+        }
+
+        // Quietly asks GitHub for the latest mod release and tells the user when it is newer.
+        private async Task CheckUpdatesAsync()
+        {
+            var dir = _path.Text.Trim();
+            try
+            {
+                var release = await Task.Run(() => InstallerEngine.GetLatestRelease(Catalog.MainMod));
+                var latest = InstallerEngine.ParseVersion(release.Tag);
+                var own = Assembly.GetExecutingAssembly().GetName().Version;
+                var installedText = GameLocator.IsGameDir(dir) ? InstallerEngine.GetInstalledModVersion(dir) : null;
+                var installed = InstallerEngine.ParseVersion(installedText);
+
+                if (installedText != null && (installed == null || (latest != null && latest > installed)))
+                {
+                    _updateInfo.Text = $"⬆ Доступно обновление мода: {release.Tag} (установлено: {installedText}). Нажмите «Обновить мод».";
+                    _updateInfo.ForeColor = Color.FromArgb(255, 205, 90);
+                }
+                else if (installedText != null)
+                {
+                    _updateInfo.Text = $"✓ Установлена последняя версия мода ({installedText}).";
+                    _updateInfo.ForeColor = Color.FromArgb(120, 220, 140);
+                }
+                else
+                {
+                    _updateInfo.Text = $"Последняя версия мода на GitHub: {release.Tag}.";
+                    _updateInfo.ForeColor = Muted;
+                }
+                if (latest != null && own != null && latest > new Version(own.Major, own.Minor, Math.Max(0, own.Build)))
+                    AppendLog($"Вышел новый установщик ({release.Tag}): github.com/{Catalog.ModRepo}/releases/latest");
+            }
+            catch (Exception ex)
+            {
+                _updateInfo.Text = "Не удалось проверить обновления: " + ex.Message;
+                _updateInfo.ForeColor = Muted;
+            }
         }
 
         // ------------------------------------------------------------------ layout
@@ -116,8 +157,16 @@ namespace MilitechHopeInstaller
             root.Controls.Add(pathRow);
 
             _gameInfo.AutoSize = true;
-            _gameInfo.Margin = new Padding(0, 6, 0, 10);
-            root.Controls.Add(_gameInfo);
+            _gameInfo.Margin = new Padding(0, 6, 0, 2);
+            _updateInfo.AutoSize = true;
+            _updateInfo.ForeColor = Muted;
+            _updateInfo.Margin = new Padding(0, 2, 0, 10);
+            _updateInfo.MaximumSize = new Size(680, 0);
+            _updateInfo.Text = "Проверка обновлений…";
+            var infoBox = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0) };
+            infoBox.Controls.Add(_gameInfo);
+            infoBox.Controls.Add(_updateInfo);
+            root.Controls.Add(infoBox);
 
             // components
             _list.Dock = DockStyle.Fill;
@@ -159,11 +208,14 @@ namespace MilitechHopeInstaller
             var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill, AutoSize = true, Margin = new Padding(0, 10, 0, 0) };
             StyleButton(_install, "Установить", true);
             _install.Click += async (s, e) => await InstallAsync();
+            StyleButton(_update, "Обновить мод", false);
+            _update.Click += async (s, e) => await UpdateAsync();
             StyleButton(_remove, "Удалить мод", false);
             _remove.Click += async (s, e) => await RemoveAsync();
             StyleButton(_open, "Открыть папку игры", false);
             _open.Click += (s, e) => { if (GameLocator.IsGameDir(_path.Text)) Process.Start("explorer.exe", "\"" + _path.Text + "\""); };
             buttons.Controls.Add(_install);
+            buttons.Controls.Add(_update);
             buttons.Controls.Add(_remove);
             buttons.Controls.Add(_open);
             root.Controls.Add(buttons);
@@ -227,6 +279,7 @@ namespace MilitechHopeInstaller
             var valid = GameLocator.IsGameDir(_path.Text.Trim());
             _install.Enabled = valid && !_busy;
             _remove.Enabled = valid && !_busy;
+            _update.Enabled = valid && !_busy;
             _open.Enabled = valid;
             _browse.Enabled = _detect.Enabled = _path.Enabled = _list.Enabled = !_busy;
         }
@@ -317,6 +370,30 @@ namespace MilitechHopeInstaller
             RefreshGameInfo();
             MessageBox.Show(this, ok ? "Установка завершена." : "Установка завершилась с ошибками. Подробности в журнале.",
                 Text, MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        }
+
+        private async Task UpdateAsync()
+        {
+            var dir = _path.Text.Trim();
+            if (!PrepareFolder(dir)) return;
+
+            _busy = true;
+            UpdateButtons();
+            _log.Clear();
+            AppendLog($"Папка игры: {dir}");
+            var engine = new InstallerEngine();
+            engine.Log += AppendLog;
+            engine.Progress += SetProgress;
+            var force = (ModifierKeys & Keys.Shift) == Keys.Shift; // Shift+click: reinstall even when up to date
+            var ok = await Task.Run(() => engine.UpdateMainMod(dir, force));
+
+            var missing = Catalog.All.Where(c => c.Required && !c.IsMainMod && !c.IsInstalled(dir)).Select(c => c.Name).ToList();
+            if (missing.Count > 0)
+                AppendLog("Внимание: не установлены " + string.Join(", ", missing) + " — отметьте их и нажмите «Установить».");
+            AppendLog(ok ? "Готово. Сохранения переносятся, имплант и модули остаются." : "Обновить не удалось — проверьте интернет и попробуйте ещё раз.");
+            _busy = false;
+            RefreshGameInfo();
+            await CheckUpdatesAsync();
         }
 
         private async Task RemoveAsync()

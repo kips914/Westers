@@ -13,6 +13,7 @@ namespace MilitechHopeInstaller
         /// GUI:     MilitechHopeInstaller.exe [--game "C:\Games\Cyberpunk 2077"]
         /// Silent:  MilitechHopeInstaller.exe --silent --game "..." [--only red4ext,redscript,...] [--log install.log]
         ///          MilitechHopeInstaller.exe --silent --game "..." --uninstall
+        ///          MilitechHopeInstaller.exe --silent --game "..." --update [--force]   (latest mod release from GitHub)
         /// Exit code 0 = success.
         /// </summary>
         [STAThread]
@@ -55,6 +56,10 @@ namespace MilitechHopeInstaller
                 if (opts.ContainsKey("uninstall"))
                 {
                     code = engine.RemoveMainMod(game) ? 0 : 1;
+                }
+                else if (opts.ContainsKey("update"))
+                {
+                    code = engine.UpdateMainMod(game, opts.ContainsKey("force")) ? 0 : 1;
                 }
                 else
                 {

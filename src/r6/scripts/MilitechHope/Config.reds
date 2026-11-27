@@ -10,6 +10,9 @@ public abstract class HopeConfig {
     public static func OverheatEffect() -> TweakDBID { return t"MilitechHope.SandevistanOverheat"; }
     public static func OverheatEffectShort() -> TweakDBID { return t"MilitechHope.SandevistanOverheatShort"; }
     public static func DealerCard() -> TweakDBID { return t"Items.MilitechHopeDealerCard"; }
+    public static func BurnoutSurgeEffect() -> TweakDBID { return t"MilitechHope.BurnoutSurge"; }
+    public static func BurnoutEffect() -> TweakDBID { return t"MilitechHope.Burnout"; }
+    public static func WarningEffect() -> TweakDBID { return t"MilitechHope.HeatWarning"; }
 
     // Two upgrade slots on Tier 5++ (vanilla attachment slots, see the .tweak blueprint).
     // They show up as module slots when you inspect the implant in the cyberware screen.
@@ -29,7 +32,9 @@ public abstract class HopeConfig {
     public static func AmbientHeat() -> Float { return 40.0; }
     // Gauge turns yellow from this temperature on.
     public static func WarmHeat() -> Float { return 80.0; }
-    // Warning message from this temperature on.
+    // Gauge turns red and pulses from this temperature on.
+    // (The overheat warning itself appears whenever the NEXT activation would
+    // overheat the implant, and a softer one from WarmHeat on.)
     public static func WarningHeat() -> Float { return 100.0; }
     // Reaching this temperature = overheat (shutdown + lockout).
     public static func CriticalHeat() -> Float { return 120.0; }
@@ -97,6 +102,37 @@ public abstract class HopeConfig {
     // Time scale multiplier during the freeze (0.01 x 1 % = time practically stops).
     public static func MadnessTimeScaleMult() -> Float { return 0.01; }
 
+    // ----- Mastery ---------------------------------------------------------------
+    // Every MasteryStep() activations of Hope raise the mastery level (max MasteryMaxLevel()).
+    // Each level lowers the implant's capacity (humanity) cost and improves it.
+    // Example: 50 -> 47 after 20 activations, 44 after 40, ... 35 after 100.
+    // Capacity cost of every Hope tier without mastery (Humanity50Cost in the .tweak).
+    public static func CapacityCost() -> Float { return 50.0; }
+    public static func MasteryStep() -> Int32 { return 20; }
+    public static func MasteryMaxLevel() -> Int32 { return 5; }
+    public static func MasteryCapacityPerLevel() -> Float { return 3.0; }
+    // per level: +2 % damage, +3 % crit damage, +0.3 s duration, 6 % faster cooling, 3 % less heat
+    public static func MasteryDamagePerLevel() -> Float { return 0.02; }
+    public static func MasteryCritDamagePerLevel() -> Float { return 3.0; }
+    public static func MasteryDurationPerLevel() -> Float { return 0.3; }
+    public static func MasteryCoolingPerLevel() -> Float { return 0.06; }
+    public static func MasteryHeatPerLevel() -> Float { return 0.03; }
+
+    // ----- Burnout ---------------------------------------------------------------
+    // BurnoutActivations() activations within BurnoutWindow() real seconds put the
+    // implant at risk: every further activation burns it out with BurnoutChance().
+    // Burnout: a storm of system errors for BurnoutErrorSeconds(), then a discharge
+    // that stops time almost completely for BurnoutSeconds(): V is disarmed and can
+    // only walk until the core cools down.
+    public static func BurnoutEnabled() -> Bool { return true; }
+    public static func BurnoutActivations() -> Int32 { return 10; }
+    public static func BurnoutWindow() -> Float { return 300.0; }
+    public static func BurnoutChance() -> Float { return 0.15; }
+    public static func BurnoutErrorSeconds() -> Float { return 3.0; }
+    public static func BurnoutSeconds() -> Float { return 20.0; }
+    // World time scale during the discharge (0.0001 = time is practically stopped).
+    public static func BurnoutTimeScale() -> Float { return 0.0001; }
+
     // ----- Trail ---------------------------------------------------------------
     // A short effect is spawned along the path while Sandevistan is active.
     // Spawned effects play in slowed world time, so they stay almost frozen
@@ -130,6 +166,11 @@ public abstract class HopeConfig {
     public static func HudY() -> Float { return 140.0; }
     // Always show the gauge while in combat (otherwise only when hot / active).
     public static func HudShowInCombat() -> Bool { return true; }
+    // Show the gauge (dimmed) whenever Hope is equipped, even when idle.
+    public static func HudAlwaysVisible() -> Bool { return true; }
+    public static func HudIdleOpacity() -> Float { return 0.55; }
+    // Big warning banner at the top of the screen (overheat, burnout, mastery).
+    public static func BannerEnabled() -> Bool { return true; }
 
     // ----- Quest -----------------------------------------------------------
     public static func RequiredLevel() -> Float { return 40.0; }

@@ -1,0 +1,66 @@
+name: Check scripts
+
+# Type-checks src/r6/scripts/MilitechHope/*.reds with the redscript 1.0.2
+# compiler frontend against the game's script sources, Codeware's scripts and
+# tools/script-check/stubs (Codeware natives). See tools/script-check/mh_check.rs.
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+env:
+  REDSCRIPT_VERSION: "1.0.2"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch compiler and reference sources
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/ref"
+          curl -sSL "https://codeload.github.com/jac3km4/redscript/tar.gz/refs/tags/v$REDSCRIPT_VERSION" | tar xz -C "$RUNNER_TEMP/ref"
+          mv "$RUNNER_TEMP/ref/redscript-$REDSCRIPT_VERSION" "$RUNNER_TEMP/ref/redscript"
+          git clone -q --depth 1 https://github.com/CDPR-Modding-Documentation/Cyberpunk-Scripts "$RUNNER_TEMP/ref/game"
+          git clone -q --depth 1 https://github.com/psiberx/cp2077-codeware "$RUNNER_TEMP/ref/codeware"
+          echo "game scripts: $(git -C "$RUNNER_TEMP/ref/game" log -1 --format='%h %ad')"
+          echo "codeware: $(git -C "$RUNNER_TEMP/ref/codeware" log -1 --format='%h %ad')"
+          # Codeware's generated imports re-declare natives that the game sources already have
+          rm -rf "$RUNNER_TEMP/ref/codeware/scripts/Base"
+          cp tools/script-check/mh_check.rs "$RUNNER_TEMP/ref/redscript/crates/compiler/redmod/adapter/examples/"
+          python3 tools/script-check/patch_redscript.py "$RUNNER_TEMP/ref/redscript"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/ref/redscript/target
+          key: mh-check-${{ env.REDSCRIPT_VERSION }}-${{ hashFiles('tools/script-check/*') }}
+          restore-keys: mh-check-${{ env.REDSCRIPT_VERSION }}-
+
+      - name: Build checker
+        working-directory: ${{ runner.temp }}/ref/redscript
+        run: cargo build --release -p redscript-redmod-adapter --example mh_check
+
+      - name: Type-check mod scripts
+        run: |
+          deps=("$RUNNER_TEMP/ref/codeware/scripts")
+          if [ -d tools/script-check/stubs ]; then deps+=("$PWD/tools/script-check/stubs"); fi
+          status=0
+          export RUST_BACKTRACE=1
+          "$RUNNER_TEMP/ref/redscript/target/release/examples/mh_check" \
+            "$RUNNER_TEMP/ref/game/scripts" "$PWD/src/r6/scripts/MilitechHope" "${deps[@]}" > check.log 2>&1 || status=$?
+          cat check.log
+          # all mod diagnostics in one annotation (readable through the check-runs API)
+          if grep -qE "^\[(ERROR|WARN|ARTIFACT)" check.log; then
+            echo "::warning title=redscript diagnostics::$(grep -E "^\[(ERROR|WARN|ARTIFACT)" check.log | head -200 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+          fi
+          echo "::notice title=summary::$(grep -E '^(loaded|game scripts|mod):' check.log | tr '\n' ' ')"
+          if [ "$status" -ne 0 ] && [ "$status" -ne 1 ]; then
+            grep -v "^  excluded" check.log | grep -iE -A3 "panicked" | head -12 | while IFS= read -r line; do echo "::warning title=crash::$line"; done
+          fi
+          exit $status
