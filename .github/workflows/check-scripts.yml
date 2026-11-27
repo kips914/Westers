@@ -29,7 +29,7 @@ jobs:
           echo "game scripts: $(git -C "$RUNNER_TEMP/ref/game" log -1 --format='%h %ad')"
           echo "codeware: $(git -C "$RUNNER_TEMP/ref/codeware" log -1 --format='%h %ad')"
           # Codeware's generated imports re-declare natives that the game sources already have
-          rm -rf "$RUNNER_TEMP/ref/codeware/scripts/Base/Imports"
+          rm -rf "$RUNNER_TEMP/ref/codeware/scripts/Base"
           cp tools/script-check/mh_check.rs "$RUNNER_TEMP/ref/redscript/crates/compiler/redmod/adapter/examples/"
           python3 tools/script-check/patch_redscript.py "$RUNNER_TEMP/ref/redscript"
 

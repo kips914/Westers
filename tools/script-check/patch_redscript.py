@@ -21,6 +21,13 @@ src, n3 = re.subn(r'for field in module\.fields\(\) \{\s*let field = &self\.symb
                   'for field in module.fields() {\n            let Some((_, field)) = self.symbols.get_field(*field.id()) else { continue };', src)
 path.write_text(src)
 print(f"patched: {n3} module field lookups")
+
+infer = root / "crates/compiler/frontend/src/stages/infer.rs"
+src = infer.read_text()
+src, n4 = re.subn(r'if !symbols\[func\.id\]\.type_\(\)\.is_valid\(\) \{',
+                  'if symbols.get_method(func.id).is_none_or(|(_, m)| !m.type_().is_valid()) {', src)
+infer.write_text(src)
+print(f"patched: {n4} add-method lookups")
 print(f"patched: {n1} field spans, {n2} param spans")
 if n1 == 0 and n2 == 0:
     sys.exit(1)
