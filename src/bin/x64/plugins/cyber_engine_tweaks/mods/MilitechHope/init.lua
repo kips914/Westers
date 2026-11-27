@@ -11,6 +11,10 @@
 --   GetMod("MilitechHope").upgrade(1)     -- give module #1
 --   GetMod("MilitechHope").upgrades()     -- give all six modules
 --   GetMod("MilitechHope").install(5)     -- give (if needed) and install #5 into the equipped Tier 5++
+--                                           (2 slots: first a free slot, then they are replaced in turn)
+--   GetMod("MilitechHope").modules()      -- show what is installed in the two slots
+--   GetMod("MilitechHope").uninstall()    -- take both modules out (back into the backpack)
+--   GetMod("MilitechHope").diag()         -- check that TweakXL, redscript, Codeware and the texts work
 --   GetMod("MilitechHope").broker()       -- unlock the broker's number (F7) without the card
 --   GetMod("MilitechHope").card()         -- give the broker's business card
 --   GetMod("MilitechHope").heat()         -- print core temperature
@@ -21,7 +25,7 @@
 --   Game.AddToInventory("Items.MilitechHopeSandevistan", 1)
 
 local MilitechHope = {
-    version = "1.3.0",
+    version = "1.3.1",
     items = {
         [0] = "Items.MilitechHopeSandevistan",
         [1] = "Items.MilitechHopeSandevistanPlus",
@@ -119,6 +123,87 @@ function MilitechHope.install(index)
     end
 end
 
+function MilitechHope.modules()
+    local system = getSystem()
+    if not system then print("[MilitechHope] System not found.") return nil end
+    local text = system:DebugGetUpgrades()
+    if text == nil or text == "" then
+        print("[MilitechHope] No Tier 5++ Hope equipped.")
+        return nil
+    end
+    local names = {}
+    for token in string.gmatch(text, "[^,%s]+") do
+        local index = tonumber(token)
+        table.insert(names, index and (tostring(index) .. " " .. MilitechHope.upgradeNames[index]) or "empty")
+    end
+    print("[MilitechHope] Slot 1: " .. (names[1] or "empty") .. " | Slot 2: " .. (names[2] or "empty"))
+    return text
+end
+
+function MilitechHope.uninstall()
+    local system = getSystem()
+    if not system then print("[MilitechHope] System not found.") return end
+    local removed = system:DebugRemoveUpgrades()
+    print("[MilitechHope] Modules removed: " .. tostring(removed))
+end
+
+-- Checks every part the mod depends on. Returns ok, message.
+function MilitechHope.diag(quiet)
+    local problems = {}
+    local function say(line) if not quiet then print("[MilitechHope] " .. line) end end
+
+    local okRecord, record = pcall(function() return TweakDB:GetRecord("Items.MilitechHopeSandevistan") end)
+    if okRecord and record then
+        say("TweakXL: OK (implant record found)")
+    else
+        say("TweakXL: FAIL - the implant record is missing (TweakXL not installed or .tweak not loaded)")
+        table.insert(problems, "TweakXL")
+    end
+
+    local system = getSystem()
+    local okVer, scriptVersion = false, nil
+    if system then okVer, scriptVersion = pcall(function() return system:DebugVersion() end) end
+
+    local okCw, cwVersion = pcall(function() return Codeware.Version() end)
+    if okCw and cwVersion then
+        say("Codeware: OK (" .. tostring(cwVersion) .. ")")
+    elseif okVer and scriptVersion then
+        say("Codeware: OK (the mod scripts that need it are running)")
+    else
+        say("Codeware: FAIL - not installed or not loaded (RED4ext / game version mismatch?)")
+        table.insert(problems, "Codeware")
+    end
+
+    if okVer and scriptVersion then
+        say("redscript: OK (mod scripts v" .. tostring(scriptVersion) .. ")")
+        if scriptVersion ~= MilitechHope.version then
+            say("redscript: WARNING - scripts v" .. tostring(scriptVersion) .. " but CET helper v" .. MilitechHope.version .. " (old files left over?)")
+        end
+    else
+        say("redscript: FAIL - mod scripts are not running. Usually a compile error:")
+        say("   open <game>\\r6\\logs\\redscript_rCURRENT.log and look for [ERROR] lines")
+        table.insert(problems, "redscript")
+    end
+
+    local okText, text = pcall(function() return Game.GetLocalizedTextByKey("MilitechHope-Name") end)
+    if not okText then
+        say("Texts: could not be checked from CET")
+    elseif text and text ~= "" and not string.find(text, "LocKey", 1, true) and text ~= "MilitechHope-Name" then
+        say("Texts: OK (" .. text .. ")")
+    else
+        say("Texts: FAIL - item descriptions will show LocKey#... (needs redscript + Codeware working)")
+        table.insert(problems, "texts")
+    end
+
+    if #problems == 0 then
+        say("Everything works.")
+        return true, "OK"
+    end
+    local message = "Militech Hope: не работает " .. table.concat(problems, ", ") ..
+        ". Проверьте r6\\logs\\redscript_rCURRENT.log (CET: GetMod(\"MilitechHope\").diag())"
+    return false, message
+end
+
 function MilitechHope.card()
     Game.AddToInventory("Items.MilitechHopeDealerCard", 1)
     print("[MilitechHope] Added the broker's business card. Press F7 to call.")
@@ -157,6 +242,26 @@ registerForEvent("onInit", function()
     print("[MilitechHope] v" .. MilitechHope.version .. " loaded. Console: GetMod(\"MilitechHope\").give()")
 end)
 
+-- One automatic check per game session: if the scripts did not compile,
+-- tell the player right away instead of silently showing LocKey texts.
+local sessionCheck = { done = false, timer = 0.0 }
+
+registerForEvent("onUpdate", function(dt)
+    if sessionCheck.done then return end
+    local okPlayer, player = pcall(function() return Game.GetPlayer() end)
+    if not okPlayer or not player then sessionCheck.timer = 0.0 return end
+    local okPre, preGame = pcall(function() return Game.GetSystemRequestsHandler():IsPreGame() end)
+    if okPre and preGame then sessionCheck.timer = 0.0 return end
+    sessionCheck.timer = sessionCheck.timer + dt
+    if sessionCheck.timer < 8.0 then return end
+    sessionCheck.done = true
+    local okDiag, ok, message = pcall(MilitechHope.diag, true)
+    if okDiag and not ok then
+        print("[MilitechHope] " .. message)
+        pcall(function() player:SetWarningMessage(message) end)
+    end
+end)
+
 registerForEvent("onOverlayOpen", function() MilitechHope.showWindow = true end)
 registerForEvent("onOverlayClose", function() MilitechHope.showWindow = false end)
 
@@ -183,6 +288,11 @@ registerForEvent("onDraw", function()
         if ImGui.Button("Unlock broker (F7)") then MilitechHope.broker() end
         ImGui.SameLine()
         if ImGui.Button("Cool down") then MilitechHope.cool() end
+        if ImGui.Button("Show modules") then MilitechHope.modules() end
+        ImGui.SameLine()
+        if ImGui.Button("Remove modules") then MilitechHope.uninstall() end
+        ImGui.SameLine()
+        if ImGui.Button("Diagnostics") then MilitechHope.diag() end
     end
     ImGui.End()
 end)

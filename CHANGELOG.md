@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.3.1 — 2026-11-27
+
+* Tier 5++ now has two upgrade slots: the blueprint gets `AttachmentSlots.SandevistanSlot2`, the modules accept both slots, and the two installed modules work at the same time.
+  * `InstallUpgrade` uses the first free slot, then replaces the slots in turn. New `RemoveUpgrades`.
+  * The HUD and the broker menu list every installed module.
+  * A Tier 5++ created by v1.3.0 keeps its single slot; a new one has two.
+* Troubleshooting for raw `LocKey#…` texts, which mean the mod scripts did not compile:
+  * new CET `diag()` checks TweakXL, the mod scripts (`DebugVersion`), Codeware and the texts;
+  * the CET helper runs the check once per session and shows an on-screen warning when something is broken.
+* New CET commands: `modules()`, `uninstall()`, `diag()`.
+
 ## v1.3.0 — 2026-11-27
 
 * Heat model in degrees Celsius replaces the plain "uses in a row" counter:

@@ -1,7 +1,7 @@
 // Militech "Hope" Sandevistan — gameplay system:
 //   * heat model in degrees Celsius (overheat -> forced recharge)
 //   * reactions to other installed implants (Axolotl, Cox-2, ...)
-//   * Tier 5++ upgrade modules (slot AttachmentSlots.SandevistanSlot1)
+//   * Tier 5++ upgrade modules (two slots: AttachmentSlots.SandevistanSlot1/2)
 //   * afterimage trail while the Sandevistan is active
 //   * Militech broker: hidden business card, shop and contracts
 //   * side job "Hope" (Arasaka Waterfront -> Columbarium crate)
@@ -59,7 +59,9 @@ public class MilitechHopeSystem extends ScriptableSystem {
     private let m_heat: Float;
     private let m_warned: Bool;
     private let m_level: Int32;
-    private let m_upgrade: Int32;
+    // installed module per upgrade slot (upgrade index, -1 = empty)
+    private let m_slotUpgrades: array<Int32>;
+    private let m_replaceSlot: Int32;
     private let m_clock: Float;
 
     // ----- active Sandevistan ----------------------------------------------
@@ -138,7 +140,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         this.m_heat = HopeConfig.AmbientHeat();
         this.m_warned = false;
         this.m_level = -1;
-        this.m_upgrade = -1;
+        ArrayClear(this.m_slotUpgrades);
         this.m_clock = 0.0;
         this.m_active = false;
         this.m_activeTime = 0.0;
@@ -301,19 +303,52 @@ public class MilitechHopeSystem extends ScriptableSystem {
         return MilitechHopeSystem.LevelOf(ItemID.GetTDBID(item));
     }
 
-    // Index of the upgrade module installed in the equipped Tier 5++, or -1.
-    public func GetInstalledUpgrade(owner: ref<GameObject>) -> Int32 {
+    // Upgrade modules installed in the equipped Tier 5++: one entry per slot
+    // (upgrade index, -1 = empty slot). Empty array without a Tier 5++.
+    public func GetInstalledUpgrades(owner: ref<GameObject>) -> array<Int32> {
+        let result: array<Int32>;
         let item = this.GetEquippedHopeItem(owner);
         if !ItemID.IsValid(item) || MilitechHopeSystem.LevelOf(ItemID.GetTDBID(item)) < 2 {
-            return -1;
+            return result;
         }
         let data = GameInstance.GetTransactionSystem(this.GetGameInstance()).GetItemData(owner, item);
-        if !IsDefined(data) || !data.HasPartInSlot(HopeConfig.UpgradeSlot()) {
-            return -1;
+        let i = 0;
+        while i < HopeConfig.UpgradeSlotCount() {
+            let index = -1;
+            let slot = HopeConfig.UpgradeSlot(i);
+            if IsDefined(data) && data.HasPartInSlot(slot) {
+                let part: InnerItemData;
+                data.GetItemPart(part, slot);
+                index = HopeUpgrades.IndexOf(ItemID.GetTDBID(InnerItemData.GetItemID(part)));
+            }
+            ArrayPush(result, index);
+            i += 1;
         }
-        let part: InnerItemData;
-        data.GetItemPart(part, HopeConfig.UpgradeSlot());
-        return HopeUpgrades.IndexOf(ItemID.GetTDBID(InnerItemData.GetItemID(part)));
+        return result;
+    }
+
+    private func RefreshUpgrades(owner: ref<GameObject>) -> Void {
+        this.m_slotUpgrades = this.GetInstalledUpgrades(owner);
+    }
+
+    public func HasUpgrade(index: Int32) -> Bool {
+        for installed in this.m_slotUpgrades {
+            if installed == index {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // "Discharge, Berserk" (installed modules, slot order)
+    private func UpgradeNames() -> String {
+        let names = "";
+        for installed in this.m_slotUpgrades {
+            if installed >= 0 {
+                names = this.Join(names, this.T(HopeUpgrades.NameKey(installed)));
+            }
+        }
+        return names;
     }
 
     public func CountItems(owner: ref<GameObject>, record: TweakDBID) -> Int32 {
@@ -531,7 +566,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
 
         this.RefreshImplants(player);
-        this.m_upgrade = this.GetInstalledUpgrade(owner);
+        this.RefreshUpgrades(owner);
         let charge = this.PoolPercent(owner, gamedataStatPoolType.SandevistanCharge);
 
         let heat = HopeConfig.ActivationHeat(level) * this.HeatMultiplier();
@@ -539,7 +574,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
             heat *= HopeConfig.ColdStartFactor();
         }
 
-        let madness = this.m_upgrade == 5 && RandF() < HopeConfig.MadnessChance();
+        let madness = this.HasUpgrade(5) && RandF() < HopeConfig.MadnessChance();
         if madness {
             heat += HopeConfig.MadnessHeat();
         }
@@ -553,7 +588,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
         this.m_active = true;
         this.m_activeTime = 0.0;
-        this.m_berserk = this.m_upgrade == 4;
+        this.m_berserk = this.HasUpgrade(4);
         this.m_madness = madness;
 
         if this.m_berserk {
@@ -567,7 +602,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
             this.m_madnessMod = this.AddMod(owner, gamedataStatType.TimeDilationSandevistanTimeScale, gameStatModifierType.Multiplier, HopeConfig.MadnessTimeScaleMult());
             this.ShowMessage(this.T(n"MilitechHope-Msg-Madness"), SimpleMessageType.Negative, 3.0);
         }
-        if this.m_upgrade == 3 {
+        if this.HasUpgrade(3) {
             this.m_phase = GameInstance.GetGodModeSystem(this.GetGameInstance()).AddGodMode(owner.GetEntityID(), gameGodModeType.Invulnerable, n"MilitechHopePhaseShield");
         }
         if IsDefined(this.m_breathMod) {
@@ -597,7 +632,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
         ArrayClear(this.m_berserkMods);
 
-        if IsDefined(player) && this.m_upgrade == 0 && player.IsInCombat() {
+        if IsDefined(player) && this.HasUpgrade(0) && player.IsInCombat() {
             this.Discharge(player);
         }
 
@@ -731,7 +766,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
 
         // Upgrade 2: quick recharge
-        if this.m_upgrade == 1 {
+        if this.HasUpgrade(1) {
             ArrayPush(this.m_killTimes, this.m_clock);
             let i = ArraySize(this.m_killTimes) - 1;
             while i >= 0 {
@@ -799,7 +834,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
         this.m_level = this.GetEquippedHopeLevel(player);
         if this.m_level < 0 {
-            this.m_upgrade = -1;
+            ArrayClear(this.m_slotUpgrades);
             this.UpdateNewBreath(player);
             this.KillTrail();
             this.m_hud.HideGauge();
@@ -807,7 +842,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
             return;
         }
         if !this.m_active {
-            this.m_upgrade = this.GetInstalledUpgrade(player);
+            this.RefreshUpgrades(player);
         }
 
         let charge = this.PoolPercent(player, gamedataStatPoolType.SandevistanCharge);
@@ -853,7 +888,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
     // Upgrade 3: "New Breath" — below the health threshold the next activation lasts 15 s.
     private func UpdateNewBreath(player: ref<PlayerPuppet>) -> Void {
         let want = false;
-        if this.m_level >= 2 && this.m_upgrade == 2 {
+        if this.m_level >= 2 && this.HasUpgrade(2) {
             let threshold = HopeConfig.NewBreathThreshold();
             if this.m_reflexTuner {
                 threshold = HopeConfig.NewBreathThresholdReflexTuner();
@@ -928,8 +963,9 @@ public class MilitechHopeSystem extends ScriptableSystem {
         state = state + "   " + this.T(n"MilitechHope-Hud-Charge") + " " + IntToString(RoundF(charge)) + "%";
 
         let info = "";
-        if this.m_upgrade >= 0 {
-            info = this.T(n"MilitechHope-Hud-Module") + " " + this.T(HopeUpgrades.NameKey(this.m_upgrade));
+        let modules = this.UpgradeNames();
+        if StrLen(modules) > 0 {
+            info = this.T(n"MilitechHope-Hud-Module") + " " + modules;
         }
         let sync = this.SyncText();
         if StrLen(sync) > 0 {
@@ -1162,7 +1198,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
             if owned > 0 {
                 line = line + "   [" + this.T(n"MilitechHope-Broker-Owned") + " " + IntToString(owned) + "]";
             }
-            if this.m_upgrade == i {
+            if this.HasUpgrade(i) {
                 line = line + "   [" + this.T(n"MilitechHope-Broker-Installed") + "]";
             }
             ArrayPush(rows, line);
@@ -1265,7 +1301,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
         let step = 1;
         while step <= count {
             let index = (this.m_installCursor + step) % count;
-            if index != this.m_upgrade && this.CountItems(player, HopeUpgrades.Id(index)) > 0 {
+            if !this.HasUpgrade(index) && this.CountItems(player, HopeUpgrades.Id(index)) > 0 {
                 let result = this.InstallUpgrade(player, index);
                 if result == 0 {
                     this.m_installCursor = index;
@@ -1285,27 +1321,68 @@ public class MilitechHopeSystem extends ScriptableSystem {
         this.m_menuStatus = this.T(n"MilitechHope-Broker-NoUpgrades");
     }
 
+    // Puts a module into the equipped Tier 5++: the first empty slot, otherwise
+    // the slots are replaced in turn (the replaced module goes back to the backpack).
     // 0 = ok, 1 = no Tier 5++ equipped, 2 = module missing / failed
     public func InstallUpgrade(player: ref<PlayerPuppet>, index: Int32) -> Int32 {
         let hope = this.GetEquippedHopeItem(player);
         if !ItemID.IsValid(hope) || MilitechHopeSystem.LevelOf(ItemID.GetTDBID(hope)) < 2 {
             return 1;
         }
+        this.RefreshUpgrades(player);
+        if this.HasUpgrade(index) {
+            return 0;
+        }
         let part = this.FindItem(player, HopeUpgrades.Id(index));
         if !ItemID.IsValid(part) {
             return 2;
         }
         let ts = GameInstance.GetTransactionSystem(this.GetGameInstance());
-        let slot = HopeConfig.UpgradeSlot();
-        let data = ts.GetItemData(player, hope);
-        if IsDefined(data) && data.HasPartInSlot(slot) {
-            ts.RemovePart(player, hope, slot);
+        let count = HopeConfig.UpgradeSlotCount();
+        let target = -1;
+        let i = 0;
+        while i < count && target < 0 {
+            if i < ArraySize(this.m_slotUpgrades) && this.m_slotUpgrades[i] < 0 {
+                let data = ts.GetItemData(player, hope);
+                if !IsDefined(data) || !data.HasPartInSlot(HopeConfig.UpgradeSlot(i)) {
+                    target = i;
+                }
+            }
+            i += 1;
         }
-        if !ts.AddPart(player, hope, part, slot) {
+        if target < 0 {
+            target = this.m_replaceSlot % count;
+            this.m_replaceSlot = (this.m_replaceSlot + 1) % count;
+            ts.RemovePart(player, hope, HopeConfig.UpgradeSlot(target));
+        }
+        if !ts.AddPart(player, hope, part, HopeConfig.UpgradeSlot(target)) {
+            this.RefreshUpgrades(player);
             return 2;
         }
-        this.m_upgrade = this.GetInstalledUpgrade(player);
+        this.RefreshUpgrades(player);
         return 0;
+    }
+
+    // Takes every module out of the equipped Tier 5++ (back into the backpack).
+    public func RemoveUpgrades(player: ref<PlayerPuppet>) -> Int32 {
+        let hope = this.GetEquippedHopeItem(player);
+        if !ItemID.IsValid(hope) || MilitechHopeSystem.LevelOf(ItemID.GetTDBID(hope)) < 2 {
+            return 0;
+        }
+        let ts = GameInstance.GetTransactionSystem(this.GetGameInstance());
+        let removed = 0;
+        let i = 0;
+        while i < HopeConfig.UpgradeSlotCount() {
+            let data = ts.GetItemData(player, hope);
+            if IsDefined(data) && data.HasPartInSlot(HopeConfig.UpgradeSlot(i)) {
+                ts.RemovePart(player, hope, HopeConfig.UpgradeSlot(i));
+                removed += 1;
+            }
+            i += 1;
+        }
+        this.m_replaceSlot = 0;
+        this.RefreshUpgrades(player);
+        return removed;
     }
 
     // ----- console helpers (CET) -----------------------------------------------
@@ -1318,6 +1395,37 @@ public class MilitechHopeSystem extends ScriptableSystem {
             GameInstance.GetTransactionSystem(this.GetGameInstance()).GiveItemByTDBID(player, HopeUpgrades.Id(index), 1);
         }
         return this.InstallUpgrade(player, index);
+    }
+
+    public func DebugRemoveUpgrades() -> Int32 {
+        let player = GetPlayer(this.GetGameInstance());
+        if !IsDefined(player) {
+            return 0;
+        }
+        return this.RemoveUpgrades(player);
+    }
+
+    // Installed modules per slot as text, e.g. "1, 5" or "3, -" (1-based like the CET commands).
+    public func DebugGetUpgrades() -> String {
+        let player = GetPlayer(this.GetGameInstance());
+        if !IsDefined(player) {
+            return "";
+        }
+        this.RefreshUpgrades(player);
+        let text = "";
+        for installed in this.m_slotUpgrades {
+            if installed >= 0 {
+                text = this.Join(text, IntToString(installed + 1));
+            } else {
+                text = this.Join(text, "-");
+            }
+        }
+        return text;
+    }
+
+    // Lets the CET helper check that the scripts compiled and run.
+    public func DebugVersion() -> String {
+        return "1.3.1";
     }
 
     public func DebugUnlockBroker() -> Void {
