@@ -115,8 +115,28 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
         &interner,
     );
 
-    let mut errors = 0;
-    let mut warnings = 0;
+    // Known checker artifacts (not errors for the real compiler with a game bundle):
+    // * UNSUPPORTED_NATIVE_CONVERSION: the game's `cast` declarations come from REDmod
+    //   sources here, so ordinary `Cast<Float>(i)` / `Cast<StatsObjectID>(id)` are
+    //   rejected by the REDmod dialect policy.
+    // * Codeware's `@addMethod`/`@addField` on game classes (GameInstance statics,
+    //   MappinSystem.GetAllMappins, FxResource.effect) are not registered on
+    //   source-defined game classes.
+    // Locals declared on an artifact line produce follow-up UNRESOLVED_REF errors;
+    // those are suppressed too.
+    const CODEWARE_MEMBERS: &[&str] = &[
+        "`FxResource` has no member named `effect`",
+        "`MappinSystem` has no member named `GetAllMappins`",
+    ];
+    struct Item {
+        file: FileId,
+        line: usize,
+        code: String,
+        text: String,
+        location: String,
+        is_error: bool,
+    }
+    let mut items = Vec::new();
     let mut other_errors = 0;
     for diagnostic in reporter.reported() {
         let in_mod = mod_set.contains(&diagnostic.span().file);
@@ -139,7 +159,7 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
             continue;
         }
         let span = diagnostic.span();
-        let location = sources
+        let (location, line) = sources
             .get(span.file)
             .map(|file| {
                 let loc = file.lookup(span.start);
@@ -148,11 +168,52 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default();
-                format!("{name}:{}:{}", loc.line + 1, loc.col + 1)
+                (format!("{name}:{}:{}", loc.line + 1, loc.col + 1), loc.line)
             })
             .unwrap_or_default();
-        let line = format!("{location} {} {}", diagnostic.code(), diagnostic.to_string().replace('\n', " "));
-        if is_error {
+        items.push(Item {
+            file: span.file,
+            line,
+            code: diagnostic.code().to_string(),
+            text: diagnostic.to_string().replace('\n', " "),
+            location,
+            is_error,
+        });
+    }
+
+    let is_artifact = |item: &Item| {
+        item.code == "UNSUPPORTED_NATIVE_CONVERSION"
+            || (item.code == "UNRESOLVED_REF" && item.text.contains("`GameInstance` is not defined"))
+            || (item.code == "UNRESOLVED_MEMBER"
+                && CODEWARE_MEMBERS.iter().any(|m| item.text.contains(m)))
+    };
+    let mut poisoned: HashSet<(FileId, String)> = HashSet::new();
+    for item in items.iter().filter(|i| is_artifact(i)) {
+        let Some(file) = sources.get(item.file) else { continue };
+        let Some(text) = file.source().lines().nth(item.line) else { continue };
+        if let Some(rest) = text.trim_start().strip_prefix("let ") {
+            let name: String = rest
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if !name.is_empty() {
+                poisoned.insert((item.file, name));
+            }
+        }
+    }
+    let mut artifacts = 0;
+    let mut errors = 0;
+    let mut warnings = 0;
+    for item in &items {
+        let cascade = item.code == "UNRESOLVED_REF"
+            && poisoned
+                .iter()
+                .any(|(f, n)| *f == item.file && item.text.contains(&format!("`{n}` is not defined")));
+        let line = format!("{} {} {}", item.location, item.code, item.text);
+        if is_artifact(item) || cascade {
+            artifacts += 1;
+            println!("[ARTIFACT] {line}");
+        } else if item.is_error {
             errors += 1;
             println!("[ERROR] {line}");
         } else {
@@ -161,7 +222,7 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
         }
     }
     println!(
-        "mod: {errors} errors, {warnings} warnings (outside the mod: {other_errors} errors, ignored)"
+        "mod: {errors} errors, {warnings} warnings, {artifacts} known checker artifacts (outside the mod: {other_errors} errors, ignored)"
     );
     Ok(if errors > 0 { ExitCode::FAILURE } else { ExitCode::SUCCESS })
 }
