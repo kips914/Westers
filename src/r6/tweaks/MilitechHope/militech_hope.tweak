@@ -1,0 +1,348 @@
+// =====================================================================
+//  Militech "Hope" (Надежда) Sandevistan — TweakXL definitions
+//  Game: Cyberpunk 2077 2.5   Requires: TweakXL, Codeware (texts)
+//
+//  Level        | Slowdown | Duration | Recharge | Overheat after
+//  Tier 5       |   95 %   |   5.0 s  |   10 s   | 3 uses in a row
+//  Tier 5+      |   97 %   |   7.5 s  |   10 s   | 3 uses in a row
+//  Tier 5++     |   99 %   |  10.0 s  |   10 s   | 2 uses in a row
+//
+//  Overheat (handled by redscript): forced shutdown + 12 s lockout.
+// =====================================================================
+
+// ---------------------------------------------------------------------
+//  Inventory icon (texture is packed into archive/pc/mod/MilitechHope.archive)
+// ---------------------------------------------------------------------
+UIIcon.militech_hope_sandevistan : UIIcon
+{
+	atlasResourcePath = "militech_hope\\icons\\militech_hope_sandevistan.inkatlas";
+	atlasPartName = "custom_icon";
+}
+
+// ---------------------------------------------------------------------
+//  Overheat lockout: blocks Sandevistan activation for 12 seconds
+// ---------------------------------------------------------------------
+MilitechHope.SandevistanOverheat : BaseStatusEffect.PlayerCyberwareCooldown
+{
+	gameplayTags += [ "MilitechHopeOverheat" ];
+	duration =
+	{
+		statModifiers =
+		[
+			{
+				statType = "BaseStats.MaxDuration";
+				modifierType = "Additive";
+				value = 12f;
+			} : ConstantStatModifier
+		];
+	} : StatModifierGroup;
+	packages =
+	[
+		{
+			stats =
+			[
+				{
+					statType = "BaseStats.HasSandevistan";
+					modifierType = "Multiplier";
+					value = 0f;
+				} : ConstantStatModifier
+			];
+		} : GameplayLogicPackage
+	];
+}
+
+// ---------------------------------------------------------------------
+//  Tier 5 (base)
+// ---------------------------------------------------------------------
+Items.MilitechHopeSandevistan : Items.SandevistanBase
+{
+	displayName = "LocKey#MilitechHope-Name";
+	localizedDescription = "LocKey#MilitechHope-Lore";
+	quality = "Quality.Legendary";
+	upgradeCostMult = 2.5f;
+	iconPath = "militech_hope_sandevistan";
+	tags += [ "MilitechHope" ];
+	objectActions +=
+	[
+		"CyberwareAction.UseCooldownedSandevistan", "CyberwareAction.UseCooldownedCorruptedSandevistan"
+	];
+	statModifiers =
+	[
+		{
+			statType = "BaseStats.IsItemIconic";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.HasSandevistan";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanDuration";
+			modifierType = "Additive";
+			value = 5.0f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanTimeScale";
+			modifierType = "Additive";
+			value = 0.05f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanRechargeDuration";
+			modifierType = "Additive";
+			value = 10.0f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanCooldownBase";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.SandevistanKillRechargeValue";
+			modifierType = "Additive";
+			value = 10.f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanEnterCost";
+			modifierType = "Additive";
+			value = -10.f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.AttunementHelper";
+			modifierType = "Additive";
+			refStat = "BaseStats.Reflexes";
+			refObject = "Player";
+			opSymbol = "*";
+			value = 0.1f;
+		} : CombinedStatModifier
+	];
+	variants = [ "Variants.Humanity40Cost" ];
+	usesVariants = true;
+	OnEquip =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Stats-T5";
+			};
+		} : GameplayLogicPackage,
+		{
+			stats =
+			[
+				{
+					statType = "BaseStats.CritDamage";
+					modifierType = "Additive";
+					value = 10f;
+				} : ConstantStatModifier,
+				{
+					statType = "BaseStats.Stamina";
+					modifierType = "Additive";
+					value = 12f;
+				} : ConstantStatModifier
+			];
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Buffs";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Overheat-T5";
+			};
+		} : GameplayLogicPackage
+	];
+	OnLooted = [];
+	nextUpgradeItem = "Items.MilitechHopeSandevistanPlus";
+}
+
+// ---------------------------------------------------------------------
+//  Tier 5+
+// ---------------------------------------------------------------------
+[ notQueryable ]
+Items.MilitechHopeSandevistanPlus : Items.MilitechHopeSandevistan
+{
+	quality = "Quality.LegendaryPlus";
+	statModifiers =
+	[
+		{
+			statType = "BaseStats.IsItemIconic";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.HasSandevistan";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanDuration";
+			modifierType = "Additive";
+			value = 7.5f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanTimeScale";
+			modifierType = "Additive";
+			value = 0.03f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanRechargeDuration";
+			modifierType = "Additive";
+			value = 10.0f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanCooldownBase";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.SandevistanKillRechargeValue";
+			modifierType = "Additive";
+			value = 10.f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanEnterCost";
+			modifierType = "Additive";
+			value = -10.f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.AttunementHelper";
+			modifierType = "Additive";
+			refStat = "BaseStats.Reflexes";
+			refObject = "Player";
+			opSymbol = "*";
+			value = 0.1f;
+		} : CombinedStatModifier
+	];
+	OnEquip =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Stats-T5P";
+			};
+		} : GameplayLogicPackage,
+		{
+			stats =
+			[
+				{
+					statType = "BaseStats.CritDamage";
+					modifierType = "Additive";
+					value = 10f;
+				} : ConstantStatModifier,
+				{
+					statType = "BaseStats.Stamina";
+					modifierType = "Additive";
+					value = 12f;
+				} : ConstantStatModifier
+			];
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Buffs";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Overheat-T5";
+			};
+		} : GameplayLogicPackage
+	];
+	nextUpgradeItem = "Items.MilitechHopeSandevistanPlusPlus";
+}
+
+// ---------------------------------------------------------------------
+//  Tier 5++ (max level)
+// ---------------------------------------------------------------------
+[ notQueryable ]
+Items.MilitechHopeSandevistanPlusPlus : Items.MilitechHopeSandevistan
+{
+	quality = "Quality.LegendaryPlusPlus";
+	statModifiers =
+	[
+		{
+			statType = "BaseStats.IsItemIconic";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.HasSandevistan";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanDuration";
+			modifierType = "Additive";
+			value = 10.0f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanTimeScale";
+			modifierType = "Additive";
+			value = 0.01f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanRechargeDuration";
+			modifierType = "Additive";
+			value = 10.0f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanCooldownBase";
+			modifierType = "Additive";
+			value = 1f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.SandevistanKillRechargeValue";
+			modifierType = "Additive";
+			value = 10.f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.TimeDilationSandevistanEnterCost";
+			modifierType = "Additive";
+			value = -10.f;
+		} : ConstantStatModifier,
+		{
+			statType = "BaseStats.AttunementHelper";
+			modifierType = "Additive";
+			refStat = "BaseStats.Reflexes";
+			refObject = "Player";
+			opSymbol = "*";
+			value = 0.1f;
+		} : CombinedStatModifier
+	];
+	OnEquip =
+	[
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Stats-T5PP";
+			};
+		} : GameplayLogicPackage,
+		{
+			stats =
+			[
+				{
+					statType = "BaseStats.CritDamage";
+					modifierType = "Additive";
+					value = 10f;
+				} : ConstantStatModifier,
+				{
+					statType = "BaseStats.Stamina";
+					modifierType = "Additive";
+					value = 12f;
+				} : ConstantStatModifier
+			];
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Buffs";
+			};
+		} : GameplayLogicPackage,
+		{
+			UIData =
+			{
+				localizedDescription = "LocKey#MilitechHope-Overheat-T5PP";
+			};
+		} : GameplayLogicPackage
+	];
+	nextUpgradeItem = "";
+}
