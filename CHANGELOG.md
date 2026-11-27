@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.3.0 — 2026-11-27
+
+* Heat model in degrees Celsius replaces the plain "uses in a row" counter:
+  * 40 °C at rest, overheat at 120 °C, warning from 100 °C;
+  * every activation heats the core by 22 °C (30 °C on Tier 5++), only half as much when it starts from a full charge;
+  * the core cools 1.5 °C/s while off and drops back to 40 °C once the charge is full again.
+* On-screen heat gauge (Codeware ink widgets on `inkHUDLayer`, `HopeHud.reds`): temperature, heat bar, state, charge, installed module, synced implants.
+* Reactions to other implants: Axolotl, Cox-2, Bioconductor, Adrenaline Booster, Second Heart (8 s lockout, `MilitechHope.SandevistanOverheatShort`), Reflex Tuner.
+* Tier 5++ gets an upgrade slot (`Items.MilitechHopeSandevistanBlueprint` → `AttachmentSlots.SandevistanSlot1`) and six Fragment-based modules `Items.MilitechHopeMod_*`:
+  * Discharge;
+  * Quick Recharge;
+  * New Breath;
+  * Phase Shield;
+  * Berserk;
+  * True Madness.
+* Militech broker:
+  * a business card (`Items.MilitechHopeDealerCard`) is planted in a random loot container from level 25 (`WorldHooks.reds`);
+  * F7 opens a shop menu (Codeware `Input/Key` callback): the Sandevistan for 500 000 €$, modules for 150 000–300 000 €$;
+  * kill contracts give the modules for free;
+  * the menu can also install modules into the equipped Tier 5++.
+* Afterimage trail: effects are spawned along the path while the Sandevistan is active and removed 1 s after it ends.
+* New CET commands: `upgrade`, `upgrades`, `install`, `broker`, `card`, `heat`, `cool`, `contract`, plus buttons in the overlay window.
+
 ## v1.2.0 — 2026-11-27
 
 * Inventory icon is now 160×160 (vanilla cyberware size), so it no longer overflows its slot.
