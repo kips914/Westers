@@ -22,6 +22,9 @@ public abstract class HopeConfig {
     // Seconds of forced recharge after an overheat (also set in the .tweak).
     public static func OverheatSeconds() -> Float { return 12.0; }
 
+    // Hope level (0 = T5, 1 = T5+, 2 = T5++) that unlocks real-speed bullets.
+    public static func RealSpeedBulletsLevel() -> Int32 { return 2; }
+
     // The streak resets after this many seconds without activations
     // or when the charge is (almost) full.
     public static func StreakResetSeconds() -> Float { return 12.0; }

@@ -46,9 +46,9 @@
                 "$type": "inkTextureAtlasMapper",
                 "clippingRectInPixels": {
                   "$type": "Rect",
-                  "bottom": 512,
+                  "bottom": 160,
                   "left": 0,
-                  "right": 512,
+                  "right": 160,
                   "top": 0
                 },
                 "clippingRectInUVCoords": {

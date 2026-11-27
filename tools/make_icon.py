@@ -5,7 +5,7 @@ Usage:  python tools/make_icon.py
 Needs:  pip install pillow numpy scipy
 
 Input : assets/icon_source.png                (screenshot with a baked checkerboard)
-Output: source/raw/militech_hope/icons/militech_hope_sandevistan.png  (512x512 RGBA)
+Output: source/raw/militech_hope/icons/militech_hope_sandevistan.png  (160x160 RGBA)
         assets/icon_preview.png               (preview on a dark background)
 """
 from pathlib import Path
@@ -18,6 +18,11 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "assets" / "icon_source.png"
 OUT = ROOT / "source" / "raw" / "militech_hope" / "icons" / "militech_hope_sandevistan.png"
 PREVIEW = ROOT / "assets" / "icon_preview.png"
+
+# Inventory widgets draw the atlas part at its pixel size, so the icon must
+# match vanilla cyberware icons (~160x156). A 512 px texture overflows the slot.
+ICON_SIZE = 160
+ICON_MARGIN = 0.07  # transparent border on every side, fraction of ICON_SIZE
 
 
 def cut_background() -> Image.Image:
@@ -60,12 +65,23 @@ def remove_halo(img: Image.Image) -> Image.Image:
     return Image.fromarray(im.astype(np.uint8))
 
 
+def fit_to_slot(big: Image.Image) -> Image.Image:
+    art = big.crop(big.getchannel("A").getbbox())
+    inner = round(ICON_SIZE * (1 - 2 * ICON_MARGIN))
+    scale = inner / max(art.size)
+    art = art.resize((max(1, round(art.width * scale)), max(1, round(art.height * scale))), Image.LANCZOS)
+    icon = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
+    icon.paste(art, ((ICON_SIZE - art.width) // 2, (ICON_SIZE - art.height) // 2))
+    return icon
+
+
 def main() -> None:
-    icon = remove_halo(cut_background())
+    big = remove_halo(cut_background())
+    icon = fit_to_slot(big)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     icon.save(OUT)
-    prev = Image.new("RGBA", icon.size, (20, 24, 32, 255))
-    prev.alpha_composite(icon)
+    prev = Image.new("RGBA", big.size, (20, 24, 32, 255))
+    prev.alpha_composite(big)
     prev.convert("RGB").save(PREVIEW)
     print(f"icon -> {OUT}")
 
