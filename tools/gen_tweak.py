@@ -202,23 +202,29 @@ MilitechHope.SandevistanOverheat : BaseStatusEffect.PlayerCyberwareCooldown
 
 
 UPGRADES = [
-    # record suffix, loc key part
-    ("Discharge", "Discharge"),
-    ("QuickCharge", "QuickCharge"),
-    ("NewBreath", "NewBreath"),
-    ("PhaseShield", "PhaseShield"),
-    ("Berserk", "Berserk"),
-    ("TrueMadness", "TrueMadness"),
+    # record suffix, loc key part, icon (tools/make_module_icons.py)
+    ("Discharge", "Discharge", "discharge"),
+    ("QuickCharge", "QuickCharge", "quickcharge"),
+    ("NewBreath", "NewBreath", "newbreath"),
+    ("PhaseShield", "PhaseShield", "phaseshield"),
+    ("Berserk", "Berserk", "berserk"),
+    ("TrueMadness", "TrueMadness", "madness"),
 ]
 
-def upgrade(rec, key):
-    return f"""[ notQueryable ]
+def upgrade(rec, key, icon):
+    return f"""UIIcon.militech_hope_mod_{icon} : UIIcon
+{{
+\tatlasResourcePath = "militech_hope\\\\icons\\\\militech_hope_mod_{icon}.inkatlas";
+\tatlasPartName = "custom_icon";
+}}
+
+[ notQueryable ]
 Items.MilitechHopeMod_{rec} : Items.Fragment
 {{
 \tdisplayName = "LocKey#MilitechHope-Mod-{key}-Name";
 \tlocalizedDescription = "LocKey#MilitechHope-Mod-Lore";
 \tquality = "Quality.Legendary";
-\ticonPath = "cwf_sandevistan1";
+\ticonPath = "militech_hope_mod_{icon}";
 \tplacementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 \ttags += [ "itemPart", "MilitechHopeUpgrade" ];
 \tOnAttach =
@@ -276,7 +282,7 @@ Items.MilitechHopeSandevistanBlueprint : ItemBlueprint
 // ---------------------------------------------------------------------
 //  Upgrade modules (Tier 5++ slots). Effects are scripted in redscript.
 // ---------------------------------------------------------------------
-""" + "\n".join(upgrade(r, k) for r, k in UPGRADES) + """
+""" + "\n".join(upgrade(r, k, i) for r, k, i in UPGRADES) + """
 // ---------------------------------------------------------------------
 //  Broker's business card: hidden in a random loot container (redscript)
 // ---------------------------------------------------------------------

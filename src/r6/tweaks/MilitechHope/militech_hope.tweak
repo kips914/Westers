@@ -622,13 +622,19 @@ Items.MilitechHopeSandevistanBlueprint : ItemBlueprint
 // ---------------------------------------------------------------------
 //  Upgrade modules (Tier 5++ slots). Effects are scripted in redscript.
 // ---------------------------------------------------------------------
+UIIcon.militech_hope_mod_discharge : UIIcon
+{
+	atlasResourcePath = "militech_hope\\icons\\militech_hope_mod_discharge.inkatlas";
+	atlasPartName = "custom_icon";
+}
+
 [ notQueryable ]
 Items.MilitechHopeMod_Discharge : Items.Fragment
 {
 	displayName = "LocKey#MilitechHope-Mod-Discharge-Name";
 	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
 	quality = "Quality.Legendary";
-	iconPath = "cwf_sandevistan1";
+	iconPath = "militech_hope_mod_discharge";
 	placementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 	tags += [ "itemPart", "MilitechHopeUpgrade" ];
 	OnAttach =
@@ -642,13 +648,19 @@ Items.MilitechHopeMod_Discharge : Items.Fragment
 	];
 }
 
+UIIcon.militech_hope_mod_quickcharge : UIIcon
+{
+	atlasResourcePath = "militech_hope\\icons\\militech_hope_mod_quickcharge.inkatlas";
+	atlasPartName = "custom_icon";
+}
+
 [ notQueryable ]
 Items.MilitechHopeMod_QuickCharge : Items.Fragment
 {
 	displayName = "LocKey#MilitechHope-Mod-QuickCharge-Name";
 	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
 	quality = "Quality.Legendary";
-	iconPath = "cwf_sandevistan1";
+	iconPath = "militech_hope_mod_quickcharge";
 	placementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 	tags += [ "itemPart", "MilitechHopeUpgrade" ];
 	OnAttach =
@@ -662,13 +674,19 @@ Items.MilitechHopeMod_QuickCharge : Items.Fragment
 	];
 }
 
+UIIcon.militech_hope_mod_newbreath : UIIcon
+{
+	atlasResourcePath = "militech_hope\\icons\\militech_hope_mod_newbreath.inkatlas";
+	atlasPartName = "custom_icon";
+}
+
 [ notQueryable ]
 Items.MilitechHopeMod_NewBreath : Items.Fragment
 {
 	displayName = "LocKey#MilitechHope-Mod-NewBreath-Name";
 	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
 	quality = "Quality.Legendary";
-	iconPath = "cwf_sandevistan1";
+	iconPath = "militech_hope_mod_newbreath";
 	placementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 	tags += [ "itemPart", "MilitechHopeUpgrade" ];
 	OnAttach =
@@ -682,13 +700,19 @@ Items.MilitechHopeMod_NewBreath : Items.Fragment
 	];
 }
 
+UIIcon.militech_hope_mod_phaseshield : UIIcon
+{
+	atlasResourcePath = "militech_hope\\icons\\militech_hope_mod_phaseshield.inkatlas";
+	atlasPartName = "custom_icon";
+}
+
 [ notQueryable ]
 Items.MilitechHopeMod_PhaseShield : Items.Fragment
 {
 	displayName = "LocKey#MilitechHope-Mod-PhaseShield-Name";
 	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
 	quality = "Quality.Legendary";
-	iconPath = "cwf_sandevistan1";
+	iconPath = "militech_hope_mod_phaseshield";
 	placementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 	tags += [ "itemPart", "MilitechHopeUpgrade" ];
 	OnAttach =
@@ -702,13 +726,19 @@ Items.MilitechHopeMod_PhaseShield : Items.Fragment
 	];
 }
 
+UIIcon.militech_hope_mod_berserk : UIIcon
+{
+	atlasResourcePath = "militech_hope\\icons\\militech_hope_mod_berserk.inkatlas";
+	atlasPartName = "custom_icon";
+}
+
 [ notQueryable ]
 Items.MilitechHopeMod_Berserk : Items.Fragment
 {
 	displayName = "LocKey#MilitechHope-Mod-Berserk-Name";
 	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
 	quality = "Quality.Legendary";
-	iconPath = "cwf_sandevistan1";
+	iconPath = "militech_hope_mod_berserk";
 	placementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 	tags += [ "itemPart", "MilitechHopeUpgrade" ];
 	OnAttach =
@@ -722,13 +752,19 @@ Items.MilitechHopeMod_Berserk : Items.Fragment
 	];
 }
 
+UIIcon.militech_hope_mod_madness : UIIcon
+{
+	atlasResourcePath = "militech_hope\\icons\\militech_hope_mod_madness.inkatlas";
+	atlasPartName = "custom_icon";
+}
+
 [ notQueryable ]
 Items.MilitechHopeMod_TrueMadness : Items.Fragment
 {
 	displayName = "LocKey#MilitechHope-Mod-TrueMadness-Name";
 	localizedDescription = "LocKey#MilitechHope-Mod-Lore";
 	quality = "Quality.Legendary";
-	iconPath = "cwf_sandevistan1";
+	iconPath = "militech_hope_mod_madness";
 	placementSlots = [ "AttachmentSlots.SandevistanSlot1", "AttachmentSlots.SandevistanSlot2" ];
 	tags += [ "itemPart", "MilitechHopeUpgrade" ];
 	OnAttach =

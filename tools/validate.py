@@ -64,37 +64,48 @@ def main() -> int:
         for key in sorted(used - defined):
             errors.append(f"Localization package #{i + 1}: missing text for {key}")
 
-    # inkatlas
-    atlas = ROOT / "source/archive/militech_hope/icons/militech_hope_sandevistan.inkatlas.json"
-    data = json.loads(atlas.read_text(encoding="utf-8"))
-    slot = data["Data"]["RootChunk"]["slots"]["Elements"][0]
-    depot = slot["texture"]["DepotPath"]["$value"]
-    if depot != "militech_hope\\icons\\militech_hope_sandevistan.xbm":
-        errors.append(f"inkatlas points to unexpected texture {depot}")
-    if slot["parts"][0]["partName"]["$value"] != "custom_icon":
-        errors.append("inkatlas part must be named custom_icon")
-    if 'atlasResourcePath = "militech_hope\\\\icons\\\\militech_hope_sandevistan.inkatlas"' not in tweak_text:
-        errors.append("UIIcon record does not point at the packed inkatlas")
+    # icons: the Sandevistan and the six upgrade modules
+    icon_names = ["militech_hope_sandevistan"] + [
+        "militech_hope_mod_" + n for n in ("discharge", "quickcharge", "newbreath", "phaseshield", "berserk", "madness")
+    ]
+    for name in icon_names:
+        atlas = ROOT / f"source/archive/militech_hope/icons/{name}.inkatlas.json"
+        if not atlas.exists():
+            errors.append(f"missing {atlas.name}")
+            continue
+        data = json.loads(atlas.read_text(encoding="utf-8"))
+        slot = data["Data"]["RootChunk"]["slots"]["Elements"][0]
+        depot = slot["texture"]["DepotPath"]["$value"]
+        if depot != f"militech_hope\\icons\\{name}.xbm":
+            errors.append(f"{atlas.name} points to unexpected texture {depot}")
+        if slot["parts"][0]["partName"]["$value"] != "custom_icon":
+            errors.append(f"{atlas.name}: part must be named custom_icon")
+        if f'atlasResourcePath = "militech_hope\\\\icons\\\\{name}.inkatlas"' not in tweak_text:
+            errors.append(f"no UIIcon record points at {name}.inkatlas")
+        if f'iconPath = "{name}"' not in tweak_text:
+            errors.append(f"no item uses iconPath {name}")
 
-    # icon
-    png = ROOT / "source/raw/militech_hope/icons/militech_hope_sandevistan.png"
-    head = png.read_bytes()[:33]
-    if head[:8] != b"\x89PNG\r\n\x1a\n":
-        errors.append("icon is not a PNG")
-    else:
-        w, h, depth, color = struct.unpack(">IIBB", head[16:26])
-        if (w, h) != (160, 160) or color != 6:
-            errors.append(f"icon must be 160x160 RGBA (vanilla slot size), got {w}x{h} color type {color}")
-        rect = slot["parts"][0]["clippingRectInPixels"]
-        if (rect["right"] - rect["left"], rect["bottom"] - rect["top"]) != (w, h):
-            errors.append("inkatlas clippingRectInPixels does not match the icon size")
+        png = ROOT / f"source/raw/militech_hope/icons/{name}.png"
+        if not png.exists():
+            errors.append(f"missing {png.name}")
+            continue
+        head = png.read_bytes()[:33]
+        if head[:8] != b"\x89PNG\r\n\x1a\n":
+            errors.append(f"{png.name} is not a PNG")
+        else:
+            w, h, depth, color = struct.unpack(">IIBB", head[16:26])
+            if (w, h) != (160, 160) or color != 6:
+                errors.append(f"{png.name} must be 160x160 RGBA (vanilla slot size), got {w}x{h} color type {color}")
+            rect = slot["parts"][0]["clippingRectInPixels"]
+            if (rect["right"] - rect["left"], rect["bottom"] - rect["top"]) != (w, h):
+                errors.append(f"{atlas.name}: clippingRectInPixels does not match the icon size")
 
     if errors:
         print("Validation failed:")
         for e in errors:
             print("  -", e)
         return 1
-    print(f"OK: {len(used)} localization keys, sources balanced, icon and atlas valid")
+    print(f"OK: {len(used)} localization keys, sources balanced, {len(icon_names)} icons and atlases valid")
     return 0
 
 

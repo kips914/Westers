@@ -24,8 +24,8 @@ print(f"patched: {n3} module field lookups")
 
 infer = root / "crates/compiler/frontend/src/stages/infer.rs"
 src = infer.read_text()
-src, n4 = re.subn(r'if !symbols\[func\.id\]\.type_\(\)\.is_valid\(\) \{',
-                  'if symbols.get_method(func.id).is_none_or(|(_, m)| !m.type_().is_valid()) {', src)
+src, n4 = re.subn(r'(FuncItemKind::AddMethod\(func\) => \{\s*)if !symbols\[func\.id\]\.type_\(\)\.is_valid\(\) \{',
+                  r'\1if symbols.get_method(func.id).is_none_or(|(_, m)| !m.type_().is_valid()) {', src)
 infer.write_text(src)
 print(f"patched: {n4} add-method lookups")
 print(f"patched: {n1} field spans, {n2} param spans")

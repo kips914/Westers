@@ -62,13 +62,20 @@ jobs:
           $icons = "$pack/militech_hope/icons"
           New-Item -ItemType Directory -Force $icons | Out-Null
 
-          & $env:WKIT import "source/raw/militech_hope/icons/militech_hope_sandevistan.png" -o $icons
-          & $env:WKIT convert deserialize "source/archive/militech_hope/icons/militech_hope_sandevistan.inkatlas.json" -o $icons
+          # Sandevistan icon + six upgrade module icons (one xbm + inkatlas each)
+          $names = Get-ChildItem "source/raw/militech_hope/icons" -Filter "militech_hope_*.png" | ForEach-Object { $_.BaseName }
+          foreach ($n in $names) {
+            & $env:WKIT import "source/raw/militech_hope/icons/$n.png" -o $icons
+            & $env:WKIT convert deserialize "source/archive/militech_hope/icons/$n.inkatlas.json" -o $icons
+          }
 
           # check what the CLI produced
           Get-ChildItem $icons | ForEach-Object { Write-Host "  $($_.Name)  $($_.Length) bytes" }
-          if (-not (Test-Path "$icons/militech_hope_sandevistan.xbm")) { throw "xbm was not produced" }
-          if (-not (Test-Path "$icons/militech_hope_sandevistan.inkatlas")) { throw "inkatlas was not produced" }
+          foreach ($n in $names) {
+            if (-not (Test-Path "$icons/$n.xbm")) { throw "$n.xbm was not produced" }
+            if (-not (Test-Path "$icons/$n.inkatlas")) { throw "$n.inkatlas was not produced" }
+          }
+          if ($names.Count -lt 7) { throw "expected 7 icons, got $($names.Count)" }
           Get-ChildItem $icons -File | Where-Object { $_.Extension -notin '.xbm', '.inkatlas' } | Remove-Item -Force
 
           New-Item -ItemType Directory -Force build/out | Out-Null
