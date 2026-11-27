@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>MilitechHopeInstaller</AssemblyName>
+    <RootNamespace>MilitechHopeInstaller</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.1.0</Version>
+    <Product>Militech Hope Sandevistan Installer</Product>
+    <Company>Westers</Company>
+    <Description>Installs the Militech "Hope" Sandevistan mod and its requirements for Cyberpunk 2077 2.5</Description>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+  </ItemGroup>
+
+  <!-- The mod package built by CI is embedded so the mod itself installs offline. -->
+  <ItemGroup Condition="Exists('payload\MilitechHope.zip')">
+    <EmbeddedResource Include="payload\MilitechHope.zip" LogicalName="MilitechHope.zip" />
+  </ItemGroup>
+
+</Project>
