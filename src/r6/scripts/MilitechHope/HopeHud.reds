@@ -212,7 +212,8 @@ public class HopeHud {
     }
 
     private func SetGaugePulse(on: Bool) -> Void {
-        if on == this.m_pulsing {
+        // (Bool has no == operator in redscript)
+        if (on && this.m_pulsing) || (!on && !this.m_pulsing) {
             return;
         }
         this.m_pulsing = on;

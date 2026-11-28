@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.1 — 2026-11-28
+
+* Fixed the in-game redscript compile errors reported by `redscript_rCURRENT.log`:
+  * `BulletHooks.reds`: `EnumInt()` already returns `Int32`, so `Cast<Int32>(EnumInt(...))` had no matching overload. This bug dates back to v1.2.0 and kept every mod script from running.
+  * `HopeHud.reds`: `Bool == Bool` has no `OperatorEqual` overload.
+* `tools/validate.py` now flags both patterns. The CI type checker misses them because it builds the game types from REDmod sources instead of the real game bundle.
+
 ## v1.4.0 — 2026-11-27
 
 * Module icons: chip-style 3D renders for the six upgrade modules (`tools/make_module_icons.py`). Each module has its own xbm and inkatlas, plus a `UIIcon.militech_hope_mod_*` record.
