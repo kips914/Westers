@@ -1778,7 +1778,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
     // Lets the CET helper check that the scripts compiled and run.
     public func DebugVersion() -> String {
-        return "1.4.0";
+        return "1.4.1";
     }
 
     public func DebugGetMastery() -> Int32 {

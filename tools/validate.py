@@ -50,6 +50,24 @@ def main() -> int:
     for p in src.rglob("*.lua"):
         check_balance(p, "--")
 
+    # redscript pitfalls the CI checker does not see (it uses REDmod sources
+    # instead of the game bundle); both were real in-game compile errors:
+    #   * EnumInt() already returns Int32 -> Cast<Int32>(EnumInt(...)) has no overload
+    #   * Bool has no == / != operator
+    for p in src.rglob("*.reds"):
+        text = p.read_text(encoding="utf-8")
+        bools = set(re.findall(r"(?:let|const)\s+(\w+)\s*:\s*Bool\b", text))
+        bools |= set(re.findall(r"[(,]\s*(\w+)\s*:\s*Bool\b", text))
+        for lineno, line in enumerate(text.splitlines(), 1):
+            code = line.split("//", 1)[0]
+            rel = p.relative_to(ROOT)
+            if re.search(r"Cast<Int32>\(\s*EnumInt\(", code):
+                errors.append(f"{rel}:{lineno}: EnumInt already returns Int32, drop Cast<Int32>")
+            for m in re.finditer(r"([\w.]+)\s*(==|!=)\s*!?([\w.]+)", code):
+                names = {m.group(1).split(".")[-1], m.group(3).split(".")[-1]}
+                if names & bools or names & {"true", "false"}:
+                    errors.append(f"{rel}:{lineno}: Bool compared with {m.group(2)} (no such operator in redscript)")
+
     # localization keys
     tweak_text = "\n".join(p.read_text(encoding="utf-8") for p in src.rglob("*.tweak"))
     reds_text = "\n".join(p.read_text(encoding="utf-8") for p in src.rglob("*.reds"))

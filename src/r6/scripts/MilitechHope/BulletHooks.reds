@@ -37,7 +37,7 @@ protected func GetDesiredAttackRecord(stateContext: ref<StateContext>, scriptInt
     }
 
     let attack: wref<Attack_Record>;
-    let isAiming = scriptInterface.localBlackboard.GetInt(GetAllBlackboardDefs().PlayerStateMachine.UpperBody) == Cast<Int32>(EnumInt(gamePSMUpperBodyStates.Aim));
+    let isAiming = scriptInterface.localBlackboard.GetInt(GetAllBlackboardDefs().PlayerStateMachine.UpperBody) == EnumInt(gamePSMUpperBodyStates.Aim);
     if isAiming {
         attack = rangedAttack.SecondaryPlayerAttack();
     }
