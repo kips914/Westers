@@ -8,7 +8,6 @@ module MilitechHope
 
 public class HopeHud {
     private let m_gauge: ref<inkCanvas>;
-    private let m_title: ref<inkText>;
     private let m_temp: ref<inkText>;
     private let m_barBack: ref<inkRectangle>;
     private let m_barFill: ref<inkRectangle>;
@@ -16,6 +15,13 @@ public class HopeHud {
     private let m_info: ref<inkText>;
     private let m_pulse: ref<inkAnimProxy>;
     private let m_pulsing: Bool;
+    private let m_checkTicks: Int32;
+    private let m_lastTemp: String;
+    private let m_lastState: String;
+    private let m_lastInfo: String;
+    private let m_lastLevel: Int32;
+    private let m_lastFill: Float;
+    private let m_lastOpacity: Float;
 
     private let m_banner: ref<inkCanvas>;
     private let m_bannerBack: ref<inkRectangle>;
@@ -62,7 +68,6 @@ public class HopeHud {
     // Forget every widget (the HUD layer is rebuilt on each game session).
     public func Reset() -> Void {
         this.m_gauge = null;
-        this.m_title = null;
         this.m_temp = null;
         this.m_barBack = null;
         this.m_barFill = null;
@@ -70,6 +75,7 @@ public class HopeHud {
         this.m_info = null;
         this.m_pulse = null;
         this.m_pulsing = false;
+        this.m_checkTicks = 0;
         this.m_banner = null;
         this.m_bannerBack = null;
         this.m_bannerEdge = null;
@@ -172,7 +178,15 @@ public class HopeHud {
     // =====================================================================
     //  Heat gauge
     // =====================================================================
+    // Compact gauge: "62 °C" + thin bar + one short state line.
+    // The attachment check (HUD layer rebuilt?) runs about once per second,
+    // and widget texts/colours are only touched when they actually change.
     private func EnsureGauge() -> Bool {
+        if IsDefined(this.m_gauge) && this.m_checkTicks > 0 {
+            this.m_checkTicks -= 1;
+            return true;
+        }
+        this.m_checkTicks = 5;
         let root = this.GetHudRoot();
         if !IsDefined(root) {
             return false;
@@ -182,30 +196,37 @@ public class HopeHud {
         }
         this.m_pulse = null;
         this.m_pulsing = false;
+        this.m_lastTemp = "";
+        this.m_lastState = "";
+        this.m_lastInfo = "";
+        this.m_lastLevel = -1;
+        this.m_lastFill = -1.0;
+        this.m_lastOpacity = -1.0;
         root.RemoveChildByName(n"MilitechHopeGauge");
 
         let gauge = new inkCanvas();
         gauge.SetName(n"MilitechHopeGauge");
         gauge.SetAnchor(inkEAnchor.CenterLeft);
         gauge.SetAnchorPoint(0.0, 0.5);
-        gauge.SetSize(620.0, 230.0);
+        gauge.SetSize(HopeHud.GaugeWidth(), 70.0);
         gauge.SetTranslation(HopeConfig.HudX(), HopeConfig.HudY());
         gauge.SetVisible(false);
         gauge.Reparent(root);
         this.m_gauge = gauge;
 
-        this.m_title = this.MakeText(gauge, 30, 0.0, 0.0);
-        this.m_temp = this.MakeText(gauge, 64, 0.0, 34.0);
-        this.m_barBack = this.MakeRect(gauge, 0.0, 112.0, 420.0, 12.0, HopeHud.Rgb(0.2, 0.2, 0.2, 0.7));
-        this.m_barFill = this.MakeRect(gauge, 0.0, 112.0, 0.0, 12.0, HopeHud.ColorNormal());
-        this.m_state = this.MakeText(gauge, 30, 0.0, 134.0);
-        this.m_info = this.MakeText(gauge, 24, 0.0, 172.0);
+        this.m_temp = this.MakeText(gauge, HopeConfig.HudFontSize(), 0.0, 0.0);
+        this.m_state = this.MakeText(gauge, HopeConfig.HudSmallFontSize(), 92.0, 8.0);
+        this.m_barBack = this.MakeRect(gauge, 0.0, 36.0, HopeHud.GaugeWidth(), 3.0, HopeHud.Rgb(0.2, 0.2, 0.2, 0.6));
+        this.m_barFill = this.MakeRect(gauge, 0.0, 36.0, 0.0, 3.0, HopeHud.ColorNormal());
+        this.m_info = this.MakeText(gauge, HopeConfig.HudSmallFontSize(), 0.0, 44.0);
         this.m_info.SetTintColor(HopeHud.ColorDim());
         return true;
     }
 
+    public static func GaugeWidth() -> Float { return 230.0; }
+
     public func HideGauge() -> Void {
-        if IsDefined(this.m_gauge) {
+        if IsDefined(this.m_gauge) && this.m_gauge.IsVisible() {
             this.SetGaugePulse(false);
             this.m_gauge.SetVisible(false);
         }
@@ -222,41 +243,66 @@ public class HopeHud {
             this.m_pulse = null;
         }
         if on {
-            this.m_pulse = this.Pulse(this.m_temp, 0.25, 0.35);
+            this.m_pulse = this.Pulse(this.m_temp, 0.5, 0.5);
         } else {
             this.m_temp.SetOpacity(1.0);
         }
     }
 
     // fill: 0..1 heat between idle and critical; level: 0 normal, 1 warm, 2 hot
-    // idle: dimmed gauge (implant equipped, nothing happening)
+    // idle: very faint gauge (implant equipped, nothing happening)
     public func ShowGauge(title: String, temp: String, fill: Float, level: Int32, state: String, info: String, idle: Bool) -> Void {
         if !this.EnsureGauge() {
             return;
         }
-        let color = HopeHud.ColorNormal();
-        if level == 1 {
-            color = HopeHud.ColorWarm();
-        } else {
-            if level >= 2 {
-                color = HopeHud.ColorHot();
+        if level != this.m_lastLevel {
+            this.m_lastLevel = level;
+            let color = HopeHud.ColorNormal();
+            if level == 1 {
+                color = HopeHud.ColorWarm();
+            } else {
+                if level >= 2 {
+                    color = HopeHud.ColorHot();
+                }
             }
+            this.m_temp.SetTintColor(color);
+            this.m_barFill.SetTintColor(color);
+            this.m_state.SetTintColor(color);
         }
-        this.m_title.SetText(title);
-        this.m_temp.SetText(temp);
-        this.m_temp.SetTintColor(color);
-        this.m_barFill.SetSize(420.0 * ClampF(fill, 0.0, 1.0), 12.0);
-        this.m_barFill.SetTintColor(color);
-        this.m_state.SetText(state);
-        this.m_state.SetTintColor(color);
-        this.m_info.SetText(info);
+        if temp != this.m_lastTemp {
+            this.m_lastTemp = temp;
+            this.m_temp.SetText(temp);
+        }
+        if state != this.m_lastState {
+            this.m_lastState = state;
+            this.m_state.SetText(state);
+        }
+        let shownInfo = info;
+        if idle || !HopeConfig.HudShowDetails() {
+            shownInfo = "";
+        }
+        if shownInfo != this.m_lastInfo {
+            this.m_lastInfo = shownInfo;
+            this.m_info.SetText(shownInfo);
+        }
+        let width = RoundF(HopeHud.GaugeWidth() * ClampF(fill, 0.0, 1.0));
+        let w = Cast<Float>(width);
+        if AbsF(w - this.m_lastFill) > 0.5 {
+            this.m_lastFill = w;
+            this.m_barFill.SetSize(w, 3.0);
+        }
+        let opacity = HopeConfig.HudOpacity();
         if idle {
-            this.m_gauge.SetOpacity(HopeConfig.HudIdleOpacity());
-        } else {
-            this.m_gauge.SetOpacity(1.0);
+            opacity = HopeConfig.HudIdleOpacity();
         }
-        this.SetGaugePulse(level >= 2);
-        this.m_gauge.SetVisible(true);
+        if AbsF(opacity - this.m_lastOpacity) > 0.01 {
+            this.m_lastOpacity = opacity;
+            this.m_gauge.SetOpacity(opacity);
+        }
+        this.SetGaugePulse(level >= 2 && !idle);
+        if !this.m_gauge.IsVisible() {
+            this.m_gauge.SetVisible(true);
+        }
     }
 
     // =====================================================================
@@ -277,16 +323,16 @@ public class HopeHud {
         banner.SetName(n"MilitechHopeBanner");
         banner.SetAnchor(inkEAnchor.TopCenter);
         banner.SetAnchorPoint(0.5, 0.0);
-        banner.SetSize(1400.0, 150.0);
-        banner.SetTranslation(0.0, 180.0);
+        banner.SetSize(900.0, 84.0);
+        banner.SetTranslation(0.0, 150.0);
         banner.SetVisible(false);
         banner.Reparent(root);
         this.m_banner = banner;
 
-        this.m_bannerBack = this.MakeRect(banner, 0.0, 0.0, 1400.0, 150.0, HopeHud.Rgb(0.03, 0.02, 0.03, 0.78));
-        this.m_bannerEdge = this.MakeRect(banner, 0.0, 0.0, 1400.0, 6.0, HopeHud.ColorHot());
-        this.m_bannerText = this.MakeText(banner, 54, 40.0, 22.0);
-        this.m_bannerSub = this.MakeText(banner, 30, 40.0, 92.0);
+        this.m_bannerBack = this.MakeRect(banner, 0.0, 0.0, 900.0, 84.0, HopeHud.Rgb(0.03, 0.02, 0.03, 0.6));
+        this.m_bannerEdge = this.MakeRect(banner, 0.0, 0.0, 900.0, 3.0, HopeHud.ColorHot());
+        this.m_bannerText = this.MakeText(banner, 34, 24.0, 10.0);
+        this.m_bannerSub = this.MakeText(banner, 20, 24.0, 52.0);
         this.m_bannerSub.SetTintColor(HopeHud.ColorDim());
         return true;
     }
@@ -322,7 +368,7 @@ public class HopeHud {
         }
         this.m_banner.SetVisible(true);
         if !wasVisible {
-            this.SlideIn(this.m_banner, 0.0, 120.0, 0.0, 180.0);
+            this.SlideIn(this.m_banner, 0.0, 110.0, 0.0, 150.0);
         }
     }
 
@@ -335,6 +381,9 @@ public class HopeHud {
     }
 
     public func HideBanner() -> Void {
+        if !IsDefined(this.m_banner) || (!this.m_banner.IsVisible() && !IsDefined(this.m_bannerPulse)) {
+            return;
+        }
         this.m_bannerTime = 0.0;
         if IsDefined(this.m_bannerPulse) {
             this.m_bannerPulse.Stop(true);
@@ -342,7 +391,7 @@ public class HopeHud {
         }
         if IsDefined(this.m_banner) {
             this.m_banner.SetVisible(false);
-            this.m_banner.SetTranslation(0.0, 180.0);
+            this.m_banner.SetTranslation(0.0, 150.0);
         }
     }
 
@@ -352,7 +401,7 @@ public class HopeHud {
             return;
         }
         if this.m_bannerGlitch {
-            this.m_banner.SetTranslation(RandRangeF(-24.0, 24.0), 180.0 + RandRangeF(-10.0, 10.0));
+            this.m_banner.SetTranslation(RandRangeF(-14.0, 14.0), 150.0 + RandRangeF(-6.0, 6.0));
             this.m_bannerBack.SetOpacity(RandRangeF(0.55, 1.0));
         }
         this.m_bannerTime -= dt;

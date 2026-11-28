@@ -120,6 +120,8 @@ public class MilitechHopeSystem extends ScriptableSystem {
     private let m_installCursor: Int32;
     private let m_visited: array<EntityID>;
     private let m_cardPlanted: Bool;
+    private let m_cardScanTimer: Int32;
+    private let m_equipTimer: Float;
 
     public static func Get(game: GameInstance) -> ref<MilitechHopeSystem> {
         return GameInstance.GetScriptableSystemsContainer(game).Get(n"MilitechHope.MilitechHopeSystem") as MilitechHopeSystem;
@@ -184,6 +186,8 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
         this.m_burnout = 0;
         this.m_burnoutTimer = 0.0;
+        this.m_equipTimer = 0.0;
+        this.m_cardScanTimer = 0;
 
         ArrayClear(this.m_trail);
         this.m_trailHasLast = false;
@@ -651,7 +655,12 @@ public class MilitechHopeSystem extends ScriptableSystem {
         }
         if this.m_madness {
             // The vanilla OnEnter reads the time scale stat right after this call.
-            this.m_madnessMod = this.AddMod(owner, gamedataStatType.TimeDilationSandevistanTimeScale, gameStatModifierType.Multiplier, HopeConfig.MadnessTimeScaleMult());
+            // Aim for an absolute time scale instead of multiplying the tier's one:
+            // a near-zero dilation (0.0001) made physics/animation unstable.
+            let scale = GameInstance.GetStatsSystem(this.GetGameInstance()).GetStatValue(this.StatsID(owner), gamedataStatType.TimeDilationSandevistanTimeScale);
+            if scale > HopeConfig.MadnessTimeScale() {
+                this.m_madnessMod = this.AddMod(owner, gamedataStatType.TimeDilationSandevistanTimeScale, gameStatModifierType.Multiplier, HopeConfig.MadnessTimeScale() / scale);
+            }
             this.ShowMessage(this.T(n"MilitechHope-Msg-Madness"), SimpleMessageType.Negative, 3.0);
         }
         if this.HasUpgrade(3) {
@@ -1159,6 +1168,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
             }
             this.m_hud.HideGauge();
             this.m_hud.HideBanner();
+            this.m_equipTimer = 0.0;
             return;
         }
         if GameInstance.GetTimeSystem(game).IsPausedState() {
@@ -1170,24 +1180,37 @@ public class MilitechHopeSystem extends ScriptableSystem {
             this.UpdateBurnout(player, dt);
         }
 
+        // Other implants only matter while Hope is equipped (also refreshed on activation).
         this.m_implantTimer -= dt;
-        if this.m_implantTimer <= 0.0 {
-            this.m_implantTimer = 2.0;
+        if this.m_implantTimer <= 0.0 && this.m_level >= 0 {
+            this.m_implantTimer = 5.0;
             this.RefreshImplants(player);
         }
 
-        this.m_level = this.GetEquippedHopeLevel(player);
+        // Equipment and installed modules change rarely: look them up once per
+        // second (always while active, the hooks also refresh them on activation).
+        this.m_equipTimer -= dt;
+        if this.m_equipTimer <= 0.0 || this.m_active {
+            this.m_equipTimer = 1.0;
+            let wasEquipped = this.m_level >= 0;
+            this.m_level = this.GetEquippedHopeLevel(player);
+            if this.m_level < 0 {
+                if wasEquipped || ArraySize(this.m_masteryMods) > 0 || IsDefined(this.m_breathMod) || ArraySize(this.m_trail) > 0 {
+                    ArrayClear(this.m_slotUpgrades);
+                    this.RemoveMastery(player);
+                    this.UpdateNewBreath(player);
+                    this.KillTrail();
+                }
+            } else {
+                if !this.m_active {
+                    this.RefreshUpgrades(player);
+                }
+            }
+        }
         if this.m_level < 0 {
-            ArrayClear(this.m_slotUpgrades);
-            this.RemoveMastery(player);
-            this.UpdateNewBreath(player);
-            this.KillTrail();
             this.m_hud.HideGauge();
             this.RenderMenuIfOpen();
             return;
-        }
-        if !this.m_active {
-            this.RefreshUpgrades(player);
         }
         this.ApplyMastery(player);
         this.UpdateWarning(player, dt);
@@ -1313,24 +1336,25 @@ public class MilitechHopeSystem extends ScriptableSystem {
             }
         }
         }
-        state = state + "   " + this.T(n"MilitechHope-Hud-Charge") + " " + IntToString(RoundF(charge)) + "%";
+        state = state + " · " + IntToString(RoundF(charge)) + "%";
 
-        let info = this.MasteryText();
-        let modules = this.UpgradeNames();
-        if StrLen(modules) > 0 {
-            info = info + "   " + this.T(n"MilitechHope-Hud-Module") + " " + modules;
-        }
-        let sync = this.SyncText();
-        if StrLen(sync) > 0 {
-            if StrLen(info) > 0 {
-                info = info + "   ";
+        // The detail line is optional (off by default) and only built when shown.
+        let info = "";
+        if busy && HopeConfig.HudShowDetails() {
+            info = this.MasteryText();
+            let modules = this.UpgradeNames();
+            if StrLen(modules) > 0 {
+                info = info + "   " + this.T(n"MilitechHope-Hud-Module") + " " + modules;
             }
-            info = info + this.T(n"MilitechHope-Hud-Sync") + " " + sync;
+            let sync = this.SyncText();
+            if StrLen(sync) > 0 {
+                info = info + "   " + this.T(n"MilitechHope-Hud-Sync") + " " + sync;
+            }
         }
 
         let fill = (this.m_heat - ambient) / (critical - ambient);
-        let temp = IntToString(RoundF(this.m_heat)) + " °C";
-        this.m_hud.ShowGauge(this.T(n"MilitechHope-Hud-Title"), temp, fill, level, state, info, !busy);
+        let temp = IntToString(RoundF(this.m_heat)) + "°C";
+        this.m_hud.ShowGauge("", temp, fill, level, state, info, !busy);
     }
 
     // =====================================================================
@@ -1398,15 +1422,15 @@ public class MilitechHopeSystem extends ScriptableSystem {
         if !IsDefined(player) {
             return;
         }
-        let level = GameInstance.GetStatsSystem(this.GetGameInstance()).GetStatValue(this.StatsID(player), gamedataStatType.Level);
-        if level < HopeConfig.ContactLevel() || this.CountItems(player, HopeConfig.DealerCard()) > 0 {
-            return;
-        }
         let id = container.GetEntityID();
         for seen in this.m_visited {
             if seen == id {
                 return;
             }
+        }
+        let level = GameInstance.GetStatsSystem(this.GetGameInstance()).GetStatValue(this.StatsID(player), gamedataStatType.Level);
+        if level < HopeConfig.ContactLevel() || this.HasCardQuick(player) {
+            return;
         }
         ArrayPush(this.m_visited, id);
         if ArraySize(this.m_visited) > 300 {
@@ -1426,13 +1450,29 @@ public class MilitechHopeSystem extends ScriptableSystem {
     }
 
     // Slow loop: the card was picked up -> the number is known for good.
+    // Cheap native lookups every second; the full inventory scan (which
+    // allocates an array of every item) only every 30 seconds as a fallback.
     private func CheckBrokerCard(player: ref<PlayerPuppet>) -> Void {
         if this.m_contact > 0 {
             return;
         }
-        if this.CountItems(player, HopeConfig.DealerCard()) > 0 {
+        let found = this.HasCardQuick(player);
+        if !found {
+            this.m_cardScanTimer -= 1;
+            if this.m_cardScanTimer <= 0 {
+                this.m_cardScanTimer = 30;
+                found = this.CountItems(player, HopeConfig.DealerCard()) > 0;
+            }
+        }
+        if found {
             this.UnlockBroker();
         }
+    }
+
+    private func HasCardQuick(player: ref<PlayerPuppet>) -> Bool {
+        let ts = GameInstance.GetTransactionSystem(this.GetGameInstance());
+        return ts.GetItemQuantityByTag(player, n"MilitechHopeCard") > 0
+            || ts.GetItemQuantity(player, ItemID.FromTDBID(HopeConfig.DealerCard())) > 0;
     }
 
     private func UnlockBroker() -> Void {
@@ -1778,7 +1818,7 @@ public class MilitechHopeSystem extends ScriptableSystem {
 
     // Lets the CET helper check that the scripts compiled and run.
     public func DebugVersion() -> String {
-        return "1.4.1";
+        return "1.4.2";
     }
 
     public func DebugGetMastery() -> Int32 {

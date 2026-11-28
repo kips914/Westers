@@ -29,7 +29,7 @@
 --   Game.AddToInventory("Items.MilitechHopeSandevistan", 1)
 
 local MilitechHope = {
-    version = "1.4.1",
+    version = "1.4.2",
     items = {
         [0] = "Items.MilitechHopeSandevistan",
         [1] = "Items.MilitechHopeSandevistanPlus",
