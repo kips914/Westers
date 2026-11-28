@@ -9,7 +9,7 @@
     <RootNamespace>MilitechHopeInstaller</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.4.1</Version>
+    <Version>1.4.2</Version>
     <Product>Militech Hope Sandevistan Installer</Product>
     <Company>Westers</Company>
     <Description>Installs the Militech "Hope" Sandevistan mod and its requirements for Cyberpunk 2077 2.5</Description>

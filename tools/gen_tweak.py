@@ -408,7 +408,7 @@ Items.MilitechHopeDealerCard : Items.SouvenirJunkItem1
 {
 \tdisplayName = "LocKey#MilitechHope-Card-Name";
 \tlocalizedDescription = "LocKey#MilitechHope-Card-Desc";
-\ttags += [ "MilitechHope" ];
+\ttags += [ "MilitechHope", "MilitechHopeCard" ];
 }
 """
 

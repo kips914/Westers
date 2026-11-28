@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.2 — 2026-11-28
+
+* Compact heat HUD:
+  * the gauge now shows only `NN°C`, a 3 px bar and one short state line (for example `АКТИВНА · 80%`). The title and the details line are gone (details can be turned back on with `HudShowDetails`);
+  * new settings `HudFontSize` (26), `HudSmallFontSize` (16) and `HudOpacity` (0.7); `HudIdleOpacity` is now 0.3; the default position moved to `HudX` 40 / `HudY` 170;
+  * the pulse only runs from 100 °C while Hope is in use;
+  * the banner is smaller (900×84, fonts 34/20, alpha 0.6) and the warning texts are shorter.
+* Performance:
+  * the HUD writes widget text, colour, size and opacity only when a value changes, and checks that its widgets are attached once per second instead of five times;
+  * equipment and installed modules are looked up once per second instead of every 0.2 s tick. That lookup ran `GetItemList` over the whole inventory several times per tick;
+  * other implants are checked every 5 s, and only while Hope is equipped;
+  * the broker card check uses native `GetItemQuantityByTag` / `GetItemQuantity` (new `MilitechHopeCard` tag). The full inventory scan is only a fallback every 30 s;
+  * the container hook checks visited containers before it looks up the level or inventory;
+  * when Hope is unequipped, cleanup runs once instead of every tick;
+  * `HideBanner` does nothing if the banner is already hidden.
+* Stability:
+  * the trail defaults to `TrailStep` 1.6 m and `TrailMaxPoints` 24 (before: 0.8 m / 80 live particle systems);
+  * burnout freezes time at 0.005 instead of 0.0001. True Madness now sets an absolute time scale (`MadnessTimeScale` 0.005) instead of multiplying the tier's 0.01 by 0.01. Near-zero dilation could make physics and animation unstable.
+
 ## v1.4.1 — 2026-11-28
 
 * Fixed the in-game redscript compile errors reported by `redscript_rCURRENT.log`:

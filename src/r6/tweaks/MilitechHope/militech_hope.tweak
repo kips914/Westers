@@ -936,5 +936,5 @@ Items.MilitechHopeDealerCard : Items.SouvenirJunkItem1
 {
 	displayName = "LocKey#MilitechHope-Card-Name";
 	localizedDescription = "LocKey#MilitechHope-Card-Desc";
-	tags += [ "MilitechHope" ];
+	tags += [ "MilitechHope", "MilitechHopeCard" ];
 }

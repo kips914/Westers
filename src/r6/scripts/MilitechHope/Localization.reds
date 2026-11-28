@@ -66,8 +66,8 @@ public class HopeRussian extends ModLocalizationPackage {
         this.Text("MilitechHope-Msg-Madness", "«НАДЕЖДА»: НАСТОЯЩЕЕ БЕЗУМИЕ. Время остановлено.");
         this.Text("MilitechHope-Hud-Title", "«НАДЕЖДА» · ТЕМПЕРАТУРА ЯДРА");
         this.Text("MilitechHope-Hud-Active", "АКТИВНА");
-        this.Text("MilitechHope-Hud-Overheat", "ПЕРЕГРЕВ · ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАРЯДКА");
-        this.Text("MilitechHope-Hud-Critical", "КРИТИЧЕСКАЯ ТЕМПЕРАТУРА");
+        this.Text("MilitechHope-Hud-Overheat", "ПЕРЕГРЕВ");
+        this.Text("MilitechHope-Hud-Critical", "КРИТИЧНО");
         this.Text("MilitechHope-Hud-Ready", "ГОТОВА");
         this.Text("MilitechHope-Hud-Cooling", "ОХЛАЖДЕНИЕ");
         this.Text("MilitechHope-Hud-Charge", "заряд");
@@ -98,7 +98,7 @@ public class HopeRussian extends ModLocalizationPackage {
         this.Text("MilitechHope-Banner-CooledSub", "«Надежда» снова в строю");
         this.Text("MilitechHope-Hud-Mastery", "Освоение");
         this.Text("MilitechHope-Hud-Capacity", "ёмкость");
-        this.Text("MilitechHope-Hud-Burnout", "ВЫГОРАНИЕ · АВАРИЙНЫЙ РАЗРЯД");
+        this.Text("MilitechHope-Hud-Burnout", "ВЫГОРАНИЕ");
         this.Text("MilitechHope-Hud-Seconds", "сек.");
         this.Text("MilitechHope-Err-1", "THERMAL_RUNAWAY: перегрев нейроконтура");
         this.Text("MilitechHope-Err-2", "SYNAPSE_DESYNC: рассинхронизация синапсов");
@@ -186,8 +186,8 @@ public class HopeEnglish extends ModLocalizationPackage {
         this.Text("MilitechHope-Msg-Madness", "HOPE: TRUE MADNESS. Time stopped.");
         this.Text("MilitechHope-Hud-Title", "HOPE · CORE TEMPERATURE");
         this.Text("MilitechHope-Hud-Active", "ACTIVE");
-        this.Text("MilitechHope-Hud-Overheat", "OVERHEAT · FORCED RECHARGE");
-        this.Text("MilitechHope-Hud-Critical", "CRITICAL TEMPERATURE");
+        this.Text("MilitechHope-Hud-Overheat", "OVERHEAT");
+        this.Text("MilitechHope-Hud-Critical", "CRITICAL");
         this.Text("MilitechHope-Hud-Ready", "READY");
         this.Text("MilitechHope-Hud-Cooling", "COOLING");
         this.Text("MilitechHope-Hud-Charge", "charge");
@@ -218,7 +218,7 @@ public class HopeEnglish extends ModLocalizationPackage {
         this.Text("MilitechHope-Banner-CooledSub", "Hope is back online");
         this.Text("MilitechHope-Hud-Mastery", "Mastery");
         this.Text("MilitechHope-Hud-Capacity", "capacity");
-        this.Text("MilitechHope-Hud-Burnout", "BURNOUT · EMERGENCY DISCHARGE");
+        this.Text("MilitechHope-Hud-Burnout", "BURNOUT");
         this.Text("MilitechHope-Hud-Seconds", "s");
         this.Text("MilitechHope-Err-1", "THERMAL_RUNAWAY: neural circuit overheating");
         this.Text("MilitechHope-Err-2", "SYNAPSE_DESYNC: synapse desynchronization");

@@ -99,8 +99,9 @@ public abstract class HopeConfig {
     public static func MadnessSeconds() -> Float { return 5.0; }
     public static func MadnessHeat() -> Float { return 45.0; }
     public static func MadnessStaminaDrain() -> Float { return 15.0; }
-    // Time scale multiplier during the freeze (0.01 x 1 % = time practically stops).
-    public static func MadnessTimeScaleMult() -> Float { return 0.01; }
+    // World time scale during the freeze (0.005 = 200x slower: looks frozen,
+    // but stays in the range the engine handles well).
+    public static func MadnessTimeScale() -> Float { return 0.005; }
 
     // ----- Mastery ---------------------------------------------------------------
     // Every MasteryStep() activations of Hope raise the mastery level (max MasteryMaxLevel()).
@@ -130,8 +131,9 @@ public abstract class HopeConfig {
     public static func BurnoutChance() -> Float { return 0.15; }
     public static func BurnoutErrorSeconds() -> Float { return 3.0; }
     public static func BurnoutSeconds() -> Float { return 20.0; }
-    // World time scale during the discharge (0.0001 = time is practically stopped).
-    public static func BurnoutTimeScale() -> Float { return 0.0001; }
+    // World time scale during the discharge (0.005 = time looks stopped;
+    // smaller values can make physics and animation unstable).
+    public static func BurnoutTimeScale() -> Float { return 0.005; }
 
     // ----- Trail ---------------------------------------------------------------
     // A short effect is spawned along the path while Sandevistan is active.
@@ -139,8 +141,9 @@ public abstract class HopeConfig {
     // until the slowdown ends and are removed one second after it.
     public static func TrailEnabled() -> Bool { return true; }
     public static func TrailEffect() -> ResRef { return r"base\\fx\\characters\\common\\charged_jump\\charged_jump.effect"; }
-    public static func TrailStep() -> Float { return 0.8; }
-    public static func TrailMaxPoints() -> Int32 { return 80; }
+    // Fewer, sparser effects: each one is a live particle system.
+    public static func TrailStep() -> Float { return 1.6; }
+    public static func TrailMaxPoints() -> Int32 { return 24; }
     public static func TrailFadeSeconds() -> Float { return 1.0; }
 
     // ----- Broker (contact, shop, contracts) -----------------------------------
@@ -162,13 +165,20 @@ public abstract class HopeConfig {
     // ----- HUD (heat gauge and broker menu) -----------------------------------
     public static func HudEnabled() -> Bool { return true; }
     // Heat gauge position, relative to the left edge / vertical centre of the HUD.
-    public static func HudX() -> Float { return 90.0; }
-    public static func HudY() -> Float { return 140.0; }
+    public static func HudX() -> Float { return 40.0; }
+    public static func HudY() -> Float { return 170.0; }
+    // Compact gauge: temperature font size and the small state line.
+    public static func HudFontSize() -> Int32 { return 26; }
+    public static func HudSmallFontSize() -> Int32 { return 16; }
+    // Opacity while something happens (active / hot / combat) and when idle.
+    public static func HudOpacity() -> Float { return 0.7; }
+    // Extra line (mastery, modules, synced implants) while active; false = only temperature and state.
+    public static func HudShowDetails() -> Bool { return false; }
     // Always show the gauge while in combat (otherwise only when hot / active).
     public static func HudShowInCombat() -> Bool { return true; }
     // Show the gauge (dimmed) whenever Hope is equipped, even when idle.
     public static func HudAlwaysVisible() -> Bool { return true; }
-    public static func HudIdleOpacity() -> Float { return 0.55; }
+    public static func HudIdleOpacity() -> Float { return 0.3; }
     // Big warning banner at the top of the screen (overheat, burnout, mastery).
     public static func BannerEnabled() -> Bool { return true; }
 
